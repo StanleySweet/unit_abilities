@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="units/athen/hero_iphicrates">
+  <Abilities>
+    <BattleCry>
+      <Action>instant</Action>
+      <Icon>abilities/battle_cry.png</Icon>
+      <Cooldown>15000</Cooldown>
+      <Tooltip>Trigger a short combat flourish on demand and briefly strengthen nearby friendly units.</Tooltip>
+      <Animation>attack_melee</Animation>
+      <AnimationVariant>combat</AnimationVariant>
+      <AnimationDuration>1800</AnimationDuration>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Duration>1600</Duration>
+      </Particles>
+      <Buff>
+        <Range>20</Range>
+        <Duration>6000</Duration>
+        <StatusName>BattleCryBuff</StatusName>
+        <TargetPlayers datatype="tokens">Player</TargetPlayers>
+        <IncludeSelf>true</IncludeSelf>
+        <Stackability>Replace</Stackability>
+        <Modifiers>
+          <BattleCryHackBoost>
+            <Paths datatype="tokens">Attack/Melee/Damage/Hack</Paths>
+            <Affects datatype="tokens">Unit</Affects>
+            <Add>2</Add>
+          </BattleCryHackBoost>
+          <BattleCrySpeedBoost>
+            <Paths datatype="tokens">UnitMotion/WalkSpeed</Paths>
+            <Affects datatype="tokens">Unit</Affects>
+            <Multiply>1.1</Multiply>
+          </BattleCrySpeedBoost>
+        </Modifiers>
+      </Buff>
+      <AreaAttack>
+        <Range>12</Range>
+        <TargetPlayers datatype="tokens">Enemy</TargetPlayers>
+        <Damage>
+          <Hack>8</Hack>
+          <Crush>4</Crush>
+        </Damage>
+      </AreaAttack>
+      <Sound>attack</Sound>
+    </BattleCry>
+    <WarDrum>
+      <Action>passive</Action>
+      <Icon>abilities/war_drum.png</Icon>
+      <Cooldown>8000</Cooldown>
+      <Tooltip>Automatically pulses in combat and grants a short local damage buff to nearby friendly units.</Tooltip>
+      <AnimationVariant>combat</AnimationVariant>
+      <AnimationDuration>1400</AnimationDuration>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Duration>1600</Duration>
+      </Particles>
+      <Buff>
+        <Range>25</Range>
+        <Duration>7000</Duration>
+        <StatusName>WarDrumBuff</StatusName>
+        <TargetPlayers datatype="tokens">Player</TargetPlayers>
+        <IncludeSelf>true</IncludeSelf>
+        <Stackability>Replace</Stackability>
+        <Modifiers>
+          <WarDrumDamageBoost>
+            <Paths datatype="tokens">Attack/Melee/Damage/Hack Attack/Ranged/Damage/Pierce</Paths>
+            <Affects datatype="tokens">Unit</Affects>
+            <Add>2</Add>
+          </WarDrumDamageBoost>
+        </Modifiers>
+      </Buff>
+      <Sound>attack</Sound>
+      <AutoTrigger>
+        <Interval>8000</Interval>
+        <InitialDelay>4000</InitialDelay>
+        <State>COMBAT</State>
+      </AutoTrigger>
+    </WarDrum>
+  </Abilities>
+</Entity>

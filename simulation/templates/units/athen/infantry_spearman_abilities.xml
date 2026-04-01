@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="units/athen/infantry_spearman_b">
+  <Identity>
+    <SelectionGroupName>units/athen/infantry_spearman_abilities</SelectionGroupName>
+    <GenericName>Athenian Hoplite Shock Trooper</GenericName>
+    <SpecificName>Hoplítēs Athēnaîos Kroustikós</SpecificName>
+  </Identity>
+  <Abilities>
+    <Shockwave>
+      <Action>instant</Action>
+      <Icon>abilities/shockwave.png</Icon>
+      <Cooldown>12000</Cooldown>
+      <Tooltip>Unleash a lethal shockwave that destroys nearby enemy units.</Tooltip>
+      <Animation>attack_melee</Animation>
+      <AnimationVariant>combat</AnimationVariant>
+      <AnimationDuration>1600</AnimationDuration>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Duration>1600</Duration>
+      </Particles>
+      <AreaAttack>
+        <Range>18</Range>
+        <TargetPlayers datatype="tokens">Enemy</TargetPlayers>
+        <Damage>
+          <Hack>1000</Hack>
+          <Crush>1000</Crush>
+        </Damage>
+      </AreaAttack>
+      <Sound>attack</Sound>
+    </Shockwave>
+  </Abilities>
+</Entity>

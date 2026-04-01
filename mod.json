@@ -1,0 +1,9 @@
+{
+	"name": "unit_abilities",
+	"label": "Unit Abilities",
+	"version": "0.28.0",
+	"url": "https://play0ad.com",
+	"description": "Standalone custom mod adding manual and auto-triggered unit abilities.",
+	"dependencies": ["0ad=0.28.0"],
+	"type": "mod"
+}

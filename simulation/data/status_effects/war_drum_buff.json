@@ -1,0 +1,7 @@
+{
+	"applierTooltip": "War Drum pulses a nearby combat buff.",
+	"code": "WarDrumBuff",
+	"icon": "war_drum_buff",
+	"statusName": "War Drum",
+	"receiverTooltip": "This unit is fighting under the War Drum buff."
+}

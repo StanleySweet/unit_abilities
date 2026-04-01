@@ -1,0 +1,7 @@
+{
+	"applierTooltip": "Battle Cry empowers nearby friendly units.",
+	"code": "BattleCryBuff",
+	"icon": "battle_cry_buff",
+	"statusName": "Battle Cry",
+	"receiverTooltip": "This unit is empowered by Battle Cry."
+}
