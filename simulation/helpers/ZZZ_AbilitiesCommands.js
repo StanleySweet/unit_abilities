@@ -4,6 +4,11 @@ g_Commands.ability = function(player, cmd, data)
 	{
 		const cmpAbilities = Engine.QueryInterface(ent, IID_Abilities);
 		if (cmpAbilities)
-			cmpAbilities.TriggerAbility(cmd.ability);
+			cmpAbilities.TriggerAbility(cmd.ability, {
+				"target": cmd.target,
+				"position": cmd.position,
+				"queued": cmd.queued,
+				"pushFront": cmd.pushFront
+			});
 	}
 };

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="template_unit_support_female_citizen">
+  <Abilities>
+    <GroundCharge>
+      <Action>point-target</Action>
+      <Icon>abilities/ground_charge.png</Icon>
+      <Cooldown>12000</Cooldown>
+      <Delay>2200</Delay>
+      <Tooltip>Choose a ground position, plant an explosive charge, then detonate it after a short fuse.</Tooltip>
+      <Target>
+        <Type>Point</Type>
+        <Range>24</Range>
+        <Cursor>action-attack</Cursor>
+        <PreviewTemplate>special/unit_abilities/charge_marker</PreviewTemplate>
+      </Target>
+      <Animation>attack_melee</Animation>
+      <AnimationDuration>1200</AnimationDuration>
+      <SpawnEntity>
+        <Template>special/unit_abilities/charge_marker</Template>
+        <Origin>target</Origin>
+        <Owner>caster</Owner>
+        <Duration>2600</Duration>
+        <Timing>immediate</Timing>
+      </SpawnEntity>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Origin>target</Origin>
+        <Duration>1000</Duration>
+      </Particles>
+      <AreaAttack>
+        <Origin>target</Origin>
+        <Range>7</Range>
+        <TargetPlayers datatype="tokens">Enemy</TargetPlayers>
+        <Damage>
+          <Hack>18</Hack>
+          <Crush>36</Crush>
+        </Damage>
+      </AreaAttack>
+      <Sound>ability_explosion</Sound>
+    </GroundCharge>
+  </Abilities>
+  <Cost>
+    <BuildTime>10</BuildTime>
+    <Resources>
+      <food>40</food>
+      <wood>20</wood>
+      <stone>0</stone>
+      <metal>10</metal>
+    </Resources>
+  </Cost>
+  <Health>
+    <Max>55</Max>
+  </Health>
+  <Identity>
+    <Civ>gaia</Civ>
+    <Phenotype>male</Phenotype>
+    <GenericName>Charge Bearer</GenericName>
+    <SpecificName>Example Ground-Target Unit</SpecificName>
+    <Icon>abilities/ground_charge.png</Icon>
+    <SelectionGroupName>units/unit_abilities/charge_bearer</SelectionGroupName>
+    <Classes datatype="tokens">Human Organic DemoAbilityUnit</Classes>
+    <VisibleClasses datatype="tokens">Support Demo Ability</VisibleClasses>
+  </Identity>
+  <Builder disable=""/>
+  <ResourceGatherer disable=""/>
+  <Sound>
+    <SoundGroups>
+      <ability_explosion>attack/impact/siegeprojectilehit.xml</ability_explosion>
+    </SoundGroups>
+  </Sound>
+  <VisualActor>
+    <Actor>units/unit_abilities/charge_bearer.xml</Actor>
+  </VisualActor>
+</Entity>

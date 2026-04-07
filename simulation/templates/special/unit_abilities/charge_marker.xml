@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="template_unit">
+  <Cost>
+    <Population>0</Population>
+    <BuildTime>0</BuildTime>
+    <Resources>
+      <food>0</food>
+      <wood>0</wood>
+      <stone>0</stone>
+      <metal>0</metal>
+    </Resources>
+  </Cost>
+  <Footprint>
+    <Circle radius="0.25"/>
+    <Height>0.45</Height>
+  </Footprint>
+  <Health>
+    <Max>1</Max>
+  </Health>
+  <Identity>
+    <Civ>gaia</Civ>
+    <GenericName>Charge Marker</GenericName>
+    <Icon>abilities/ground_charge.png</Icon>
+    <Classes datatype="tokens">Unit Trap</Classes>
+    <VisibleClasses datatype="tokens">Trap</VisibleClasses>
+    <Undeletable>true</Undeletable>
+  </Identity>
+  <Obstruction>
+    <Unit/>
+    <Active>false</Active>
+    <BlockMovement>false</BlockMovement>
+    <BlockPathfinding>false</BlockPathfinding>
+    <BlockFoundation>false</BlockFoundation>
+    <BlockConstruction>false</BlockConstruction>
+  </Obstruction>
+  <Sound>
+    <SoundGroups/>
+  </Sound>
+  <UnitAI>
+    <DefaultStance>passive</DefaultStance>
+    <CanGuard>false</CanGuard>
+    <CanPatrol>false</CanPatrol>
+    <Formations disable=""/>
+  </UnitAI>
+  <UnitMotion>
+    <WalkSpeed>0.1</WalkSpeed>
+    <RunMultiplier>1.0</RunMultiplier>
+    <Acceleration>0.1</Acceleration>
+  </UnitMotion>
+  <Vision>
+    <Range>0</Range>
+  </Vision>
+  <VisualActor>
+    <Actor>special/unit_abilities/charge_marker.xml</Actor>
+  </VisualActor>
+</Entity>

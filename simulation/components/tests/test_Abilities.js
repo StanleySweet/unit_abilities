@@ -7,6 +7,7 @@ Engine.RegisterGlobal("AttackHelper", {
 Engine.LoadComponentScript("interfaces/Abilities.js");
 Engine.LoadComponentScript("interfaces/Diplomacy.js");
 Engine.LoadComponentScript("interfaces/Health.js");
+Engine.LoadComponentScript("interfaces/Identity.js");
 Engine.LoadComponentScript("interfaces/Player.js");
 Engine.LoadComponentScript("interfaces/PlayerManager.js");
 Engine.LoadComponentScript("interfaces/StatusEffectsReceiver.js");
@@ -32,6 +33,7 @@ const cmpTimer = ConstructComponent(SYSTEM_ENTITY, "Timer");
 
 let addedLocalTemplate = undefined;
 let destroyedEntity = undefined;
+let addedEntityTemplate = undefined;
 let playedSound = undefined;
 let selectedAnimation = undefined;
 let selectedOnce = undefined;
@@ -40,15 +42,19 @@ let selectedVariant = undefined;
 let jumpedTo = undefined;
 let rotatedTo = undefined;
 let effectOwner = undefined;
+let spawnedJumpedTo = undefined;
+let spawnedOwner = undefined;
 let resetVariantCalled = false;
 let resetAnimationCalled = false;
 let autoOrders = [];
 let autoState = "INDIVIDUAL.IDLE";
 let statusCalls = [];
 let queryPlayers = undefined;
+let queryType = undefined;
+let aroundQueryPosition = undefined;
 
 AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
-	"GetAllPlayers": () => [owner, ally, enemy],
+	"GetAllPlayers": () => [0, owner, ally, enemy],
 	"GetPlayerByID": id => ({
 		[owner]: playerEntity,
 		[ally]: allyPlayerEntity,
@@ -74,6 +80,12 @@ Engine.AddLocalEntity = template =>
 	return localEffectEntity;
 };
 
+Engine.AddEntity = template =>
+{
+	addedEntityTemplate = template;
+	return fifthEntity;
+};
+
 Engine.DestroyEntity = entity =>
 {
 	destroyedEntity = entity;
@@ -97,6 +109,7 @@ AddMock(playerEntity, IID_Diplomacy, {
 AddMock(firstEntity, IID_Position, {
 	"IsInWorld": () => true,
 	"GetPosition": () => ({ "x": 11, "y": 0, "z": 13 }),
+	"GetPosition2D": () => new Vector2D(11, 13),
 	"GetRotation": () => ({ "x": 0, "y": 1.25, "z": 0 })
 });
 
@@ -134,9 +147,19 @@ AddMock(SYSTEM_ENTITY, IID_RangeManager, {
 	"ExecuteQuery": (entity, min, max, players, iid, accountForSize) =>
 	{
 		queryPlayers = players;
+		queryType = "entity";
 		if (iid == IID_Health)
 			return [secondEntity, thirdEntity];
 		return [firstEntity, secondEntity, thirdEntity];
+	},
+	"ExecuteQueryAroundPos": (position, min, max, players, iid, accountForSize) =>
+	{
+		queryPlayers = players;
+		queryType = "point";
+		aroundQueryPosition = [position.x, position.y];
+		if (iid == IID_Health)
+			return [secondEntity];
+		return [secondEntity];
 	}
 });
 
@@ -154,8 +177,45 @@ AddMock(secondEntity, IID_Health, {
 	"TakeDamage": () => ({ "healthChange": -1 })
 });
 
+AddMock(secondEntity, IID_Position, {
+	"IsInWorld": () => true,
+	"GetPosition": () => ({ "x": 15, "y": 0, "z": 18 }),
+	"GetPosition2D": () => new Vector2D(15, 18)
+});
+
+AddMock(secondEntity, IID_Ownership, {
+	"GetOwner": () => enemy
+});
+
+AddMock(secondEntity, IID_Identity, {
+	"HasClass": className => ["Unit", "Organic"].indexOf(className) != -1
+});
+
 AddMock(thirdEntity, IID_Health, {
 	"TakeDamage": () => ({ "healthChange": -1 })
+});
+
+AddMock(thirdEntity, IID_Position, {
+	"IsInWorld": () => true,
+	"GetPosition": () => ({ "x": 80, "y": 0, "z": 80 }),
+	"GetPosition2D": () => new Vector2D(80, 80)
+});
+
+AddMock(thirdEntity, IID_Ownership, {
+	"GetOwner": () => owner
+});
+
+AddMock(thirdEntity, IID_Identity, {
+	"HasClass": className => className == "Structure"
+});
+
+AddMock(fifthEntity, IID_Position, {
+	"JumpTo": (x, z) => spawnedJumpedTo = [x, z],
+	"SetYRotation": () => {}
+});
+
+AddMock(fifthEntity, IID_Ownership, {
+	"SetOwner": newOwner => spawnedOwner = newOwner
 });
 
 const firstTemplate = {
@@ -228,8 +288,17 @@ TS_ASSERT_UNEVAL_EQUALS(cmpAbilities.GetAbilityStates(), [{
 	"tooltip": "Hit hard.",
 	"animation": "attack_melee",
 	"animationVariant": "combat",
+	"delay": 0,
 	"autoTrigger": false,
-	"autoTriggerInterval": 0
+	"autoTriggerInterval": 0,
+	"target": {
+		"type": "none",
+		"range": 0,
+		"cursor": "",
+		"players": "",
+		"classes": "",
+		"allowSelf": true
+	}
 }, {
 	"name": "SilentStep",
 	"action": "instant",
@@ -240,8 +309,17 @@ TS_ASSERT_UNEVAL_EQUALS(cmpAbilities.GetAbilityStates(), [{
 	"tooltip": "",
 	"animation": "",
 	"animationVariant": "",
+	"delay": 0,
 	"autoTrigger": false,
-	"autoTriggerInterval": 0
+	"autoTriggerInterval": 0,
+	"target": {
+		"type": "none",
+		"range": 0,
+		"cursor": "",
+		"players": "",
+		"classes": "",
+		"allowSelf": true
+	}
 }]);
 
 TS_ASSERT(!cmpAbilities.TriggerAbility("Missing"));
@@ -364,6 +442,20 @@ TS_ASSERT_UNEVAL_EQUALS(cmpAbilities.GetBuffTargetPlayers({
 TS_ASSERT_UNEVAL_EQUALS(cmpAbilities.GetTargetPlayers({
 	"_string": "Enemy"
 }, "Player"), [enemy]);
+TS_ASSERT_UNEVAL_EQUALS(cmpAbilities.GetTargetPlayers({
+	"_string": "Gaia Enemy"
+}, "Player"), [0, enemy]);
+TS_ASSERT_EQUALS(cmpAbilities.GetTargetState({
+	"Type": "Entity",
+	"Range": "18",
+	"TargetPlayers": {
+		"_string": "Enemy"
+	},
+	"Classes": {
+		"_string": "Unit Organic"
+	},
+	"AllowSelf": "false"
+}).type, "entity");
 cmpAbilitiesWithoutVisual.ApplyBuff("NoFx", { "Buff": { "Range": "10", "Duration": "1000", "Modifiers": {} } });
 cmpAbilitiesWithoutVisual.ApplyAreaAttack("NoFx", { "AreaAttack": { "Range": "10", "Damage": { "Hack": "2" } } });
 DeleteMock(SYSTEM_ENTITY, IID_RangeManager);
@@ -438,8 +530,17 @@ TS_ASSERT_UNEVAL_EQUALS(cmpAutoAbilities.GetAbilityStates(), [{
 	"tooltip": "",
 	"animation": "",
 	"animationVariant": "",
+	"delay": 0,
 	"autoTrigger": true,
-	"autoTriggerInterval": 1000
+	"autoTriggerInterval": 1000,
+	"target": {
+		"type": "none",
+		"range": 0,
+		"cursor": "",
+		"players": "",
+		"classes": "",
+		"allowSelf": true
+	}
 }]);
 TS_ASSERT_EQUALS(cmpTimer.timers.size, 1);
 cmpTimer.OnUpdate({ "turnLength": 0.5 });
@@ -504,6 +605,170 @@ TS_ASSERT_UNEVAL_EQUALS(cmpStatefulAutoAbilities.GetBuffTargetPlayers({
 	"TargetPlayers": "Player"
 }), []);
 
+AddMock(fifthEntity, IID_Ownership, {
+	"SetOwner": newOwner => spawnedOwner = newOwner
+});
+
+const targetedTemplate = {
+	"DeployTrap": {
+		"Action": "point-target",
+		"Icon": "technologies/fire_arrows.png",
+		"Cooldown": "3000",
+		"Target": {
+			"Type": "Point",
+			"Range": "20",
+			"Cursor": "action-attack"
+		},
+		"Particles": {
+			"Template": "special/effects/hero_ability_aura",
+			"Origin": "target"
+		},
+		"SpawnEntity": {
+			"Template": "units/test_trap",
+			"Origin": "target",
+			"Owner": "caster",
+			"Timing": "immediate"
+		},
+		"AreaAttack": {
+			"Origin": "target",
+			"Range": "6",
+			"TargetPlayers": {
+				"_string": "Enemy"
+			},
+			"Damage": {
+				"Hack": "5"
+			}
+		}
+	},
+	"MarkTarget": {
+		"Action": "unit-target",
+		"Icon": "technologies/fire_arrows.png",
+		"Cooldown": "2000",
+		"Target": {
+			"Type": "Entity",
+			"Range": "20",
+			"TargetPlayers": {
+				"_string": "Enemy"
+			},
+			"Classes": {
+				"_string": "Unit"
+			},
+			"AllowSelf": "false"
+		},
+		"DirectDamage": {
+			"Origin": "target",
+			"Damage": {
+				"Pierce": "11"
+			}
+		},
+		"Particles": {
+			"Template": "special/effects/hero_ability_aura",
+			"Origin": "target"
+		}
+	}
+};
+
+const cmpTargetedAbilities = ConstructComponent(firstEntity, "Abilities", targetedTemplate);
+TS_ASSERT(cmpTargetedAbilities.CanTargetPoint(targetedTemplate.DeployTrap, { "x": 18, "z": 20 }));
+TS_ASSERT(!cmpTargetedAbilities.CanTargetPoint(targetedTemplate.DeployTrap, { "x": 80, "z": 80 }));
+TS_ASSERT(cmpTargetedAbilities.CanTargetEntity(targetedTemplate.MarkTarget, secondEntity));
+TS_ASSERT(!cmpTargetedAbilities.CanTargetEntity(targetedTemplate.MarkTarget, thirdEntity));
+TS_ASSERT(!cmpTargetedAbilities.CanTargetEntity(targetedTemplate.MarkTarget, firstEntity));
+TS_ASSERT(cmpTargetedAbilities.TriggerAbility("DeployTrap", {
+	"position": { "x": 18, "z": 20 }
+}));
+TS_ASSERT_EQUALS(addedEntityTemplate, "units/test_trap");
+TS_ASSERT_UNEVAL_EQUALS(spawnedJumpedTo, [18, 20]);
+TS_ASSERT_EQUALS(spawnedOwner, owner);
+TS_ASSERT_EQUALS(queryType, "point");
+TS_ASSERT_UNEVAL_EQUALS(aroundQueryPosition, [18, 20]);
+const targetedAttackCount = attackCalls.length;
+TS_ASSERT(cmpTargetedAbilities.TriggerAbility("MarkTarget", {
+	"target": secondEntity
+}));
+TS_ASSERT_UNEVAL_EQUALS(jumpedTo, [15, 18]);
+TS_ASSERT_EQUALS(attackCalls.length, targetedAttackCount + 1);
+TS_ASSERT_EQUALS(attackCalls[targetedAttackCount].target, secondEntity);
+TS_ASSERT_EQUALS(attackCalls[targetedAttackCount].data.type, "MarkTarget.DirectDamage");
+TS_ASSERT_EQUALS(attackCalls[targetedAttackCount].data.attackData.Damage.Pierce, 11);
+TS_ASSERT(!cmpTargetedAbilities.TriggerAbility("MarkTarget", {
+	"target": thirdEntity
+}));
+TS_ASSERT(!cmpTargetedAbilities.TriggerAbility("DeployTrap", {
+	"position": { "x": 90, "z": 90 }
+}));
+
+addedLocalTemplate = undefined;
+addedEntityTemplate = undefined;
+playedSound = undefined;
+attackCalls.length = 0;
+spawnedJumpedTo = undefined;
+aroundQueryPosition = undefined;
+
+const delayedTemplate = {
+	"DelayedBlast": {
+		"Action": "point-target",
+		"Icon": "technologies/fire_arrows.png",
+		"Cooldown": "4000",
+		"Delay": "600",
+		"Target": {
+			"Type": "Point",
+			"Range": "20"
+		},
+		"Particles": {
+			"Template": "special/effects/hero_ability_aura",
+			"Origin": "target"
+		},
+			"SpawnEntity": {
+				"Template": "units/test_trap",
+				"Origin": "target",
+				"Owner": "caster",
+				"Timing": "immediate"
+			},
+		"AreaAttack": {
+			"Origin": "target",
+			"Range": "5",
+			"TargetPlayers": {
+				"_string": "Enemy"
+			},
+			"Damage": {
+				"Hack": "9"
+			}
+		},
+		"Sound": "attack"
+	}
+};
+
+const cmpDelayedAbilities = ConstructComponent(firstEntity, "Abilities", delayedTemplate);
+TS_ASSERT_EQUALS(cmpDelayedAbilities.GetAbilityStates()[0].delay, 600);
+TS_ASSERT(cmpDelayedAbilities.TriggerAbility("DelayedBlast", {
+	"position": { "x": 17, "z": 19 }
+}));
+TS_ASSERT_EQUALS(cmpDelayedAbilities.GetRemainingCooldown("DelayedBlast"), 4000);
+TS_ASSERT_EQUALS(addedEntityTemplate, "units/test_trap");
+TS_ASSERT_UNEVAL_EQUALS(spawnedJumpedTo, [17, 19]);
+TS_ASSERT_EQUALS(addedLocalTemplate, undefined);
+TS_ASSERT_EQUALS(playedSound, undefined);
+TS_ASSERT_EQUALS(attackCalls.length, 0);
+addedEntityTemplate = undefined;
+spawnedJumpedTo = undefined;
+
+cmpTimer.OnUpdate({ "turnLength": 0.5 });
+TS_ASSERT_EQUALS(addedLocalTemplate, undefined);
+TS_ASSERT_EQUALS(addedEntityTemplate, undefined);
+TS_ASSERT_EQUALS(playedSound, undefined);
+TS_ASSERT_EQUALS(attackCalls.length, 0);
+
+cmpTimer.OnUpdate({ "turnLength": 0.2 });
+TS_ASSERT_EQUALS(addedLocalTemplate, "special/effects/hero_ability_aura");
+TS_ASSERT_EQUALS(addedEntityTemplate, "units/test_trap");
+TS_ASSERT_UNEVAL_EQUALS(spawnedJumpedTo, [17, 19]);
+TS_ASSERT_UNEVAL_EQUALS(aroundQueryPosition, [17, 19]);
+TS_ASSERT_EQUALS(playedSound, "attack");
+TS_ASSERT_EQUALS(attackCalls.length, 1);
+
+cmpDelayedAbilities.OnDestroy();
+cmpTargetedAbilities.OnDestroy();
 cmpAutoAbilities.OnDestroy();
 cmpStatefulAutoAbilities.OnDestroy();
 TS_ASSERT_EQUALS(cmpTimer.timers.size, 0);

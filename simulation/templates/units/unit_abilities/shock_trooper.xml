@@ -1,14 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Entity parent="units/athen/infantry_spearman_b">
+<Entity parent="template_unit_infantry_melee_spearman">
   <Identity>
-    <SelectionGroupName>units/athen/infantry_spearman_abilities</SelectionGroupName>
-    <GenericName>Athenian Hoplite Shock Trooper</GenericName>
-    <SpecificName>Hoplítēs Athēnaîos Kroustikós</SpecificName>
+    <Civ>gaia</Civ>
+    <Phenotype>male</Phenotype>
+    <SelectionGroupName>units/unit_abilities/shock_trooper</SelectionGroupName>
+    <GenericName>Shock Trooper</GenericName>
+    <SpecificName>Example Area Burst Unit</SpecificName>
+    <Icon>abilities/shock_burst.png</Icon>
+    <Classes datatype="tokens">Human CitizenSoldier Organic DemoAbilityUnit</Classes>
+    <VisibleClasses datatype="tokens">Soldier Infantry Demo Ability</VisibleClasses>
   </Identity>
   <Abilities>
     <Shockwave>
       <Action>instant</Action>
-      <Icon>abilities/shockwave.png</Icon>
+      <Icon>abilities/shock_burst.png</Icon>
       <Cooldown>12000</Cooldown>
       <Tooltip>Unleash a lethal shockwave that destroys nearby enemy units.</Tooltip>
       <Animation>attack_melee</Animation>
@@ -29,4 +34,10 @@
       <Sound>attack</Sound>
     </Shockwave>
   </Abilities>
+  <Builder disable=""/>
+  <Promotion disable=""/>
+  <ResourceGatherer disable=""/>
+  <VisualActor>
+    <Actor>units/unit_abilities/charge_bearer.xml</Actor>
+  </VisualActor>
 </Entity>

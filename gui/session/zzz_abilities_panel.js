@@ -1,10 +1,232 @@
-function performAbility(abilityName)
+var g_AbilityTargetSelection = undefined;
+var g_AbilityPreSelectedActionPrefix = "ability:";
+
+function updateAbilityPlacementPreview()
 {
-	Engine.PostNetworkCommand({
-		"type": "ability",
-		"entities": g_Selection.toList(),
-		"ability": abilityName
+	if (!g_AbilityTargetSelection ||
+		!g_AbilityTargetSelection.target ||
+		g_AbilityTargetSelection.target.type != "point" ||
+		!g_AbilityTargetSelection.target.previewTemplate)
+	{
+		Engine.GuiInterfaceCall("SetAbilityPlacementPreview", { "template": "" });
+		return;
+	}
+
+	const position = Engine.GetTerrainAtScreenPoint(mouseX, mouseY);
+	if (!position)
+		return;
+
+	Engine.GuiInterfaceCall("SetAbilityPlacementPreview", {
+		"template": g_AbilityTargetSelection.target.previewTemplate,
+		"x": position.x,
+		"z": position.z,
+		"angle": 0
 	});
+}
+
+function postAbilityCommand(abilityName, extraData, selection, queued, pushFront)
+{
+	const command = {
+		"type": "ability",
+		"entities": selection || g_Selection.toList(),
+		"ability": abilityName,
+		"queued": !!queued,
+		"pushFront": !!pushFront
+	};
+
+	if (extraData)
+		for (const key in extraData)
+			command[key] = extraData[key];
+
+	Engine.PostNetworkCommand(command);
+}
+
+function getAbilityPreSelectedAction(ability)
+{
+	if (!ability || !ability.target || !ability.target.type || ability.target.type == "none")
+		return undefined;
+
+	return g_AbilityPreSelectedActionPrefix + ability.target.type;
+}
+
+function cancelAbilityTargetSelection()
+{
+	if (!g_AbilityTargetSelection)
+		return;
+
+	g_AbilityTargetSelection = undefined;
+	Engine.GuiInterfaceCall("SetAbilityPlacementPreview", { "template": "" });
+	if (String(preSelectedAction).indexOf(g_AbilityPreSelectedActionPrefix) == 0)
+		preSelectedAction = ACTION_NONE;
+	if (inputState == INPUT_PRESELECTEDACTION)
+		inputState = INPUT_NORMAL;
+}
+
+function performAbility(ability)
+{
+	if (!ability.target || ability.target.type == "none")
+	{
+		postAbilityCommand(ability.name);
+		return;
+	}
+
+	g_AbilityTargetSelection = ability;
+	preSelectedAction = getAbilityPreSelectedAction(ability);
+	inputState = INPUT_PRESELECTEDACTION;
+	updateAbilityPlacementPreview();
+}
+
+function getActiveAbilitySelection(selection)
+{
+	if (!g_AbilityTargetSelection || !selection || !selection.length)
+		return undefined;
+
+	const entState = GetEntityState(selection[0]);
+	if (!entState || !entState.abilities)
+		return undefined;
+
+	const activeAbility = entState.abilities.find(ability => ability.name == g_AbilityTargetSelection.name);
+	if (!activeAbility || !activeAbility.target || activeAbility.target.type != g_AbilityTargetSelection.target.type)
+		return undefined;
+
+	return activeAbility;
+}
+
+function abilityTargetClassesMatch(targetState, classes)
+{
+	if (!classes)
+		return true;
+
+	const requiredClasses = classes.split(/\s+/).filter(Boolean);
+	if (!requiredClasses.length)
+		return true;
+
+	return !!targetState && !!targetState.identity && requiredClasses.every(className =>
+		targetState.identity.classes && targetState.identity.classes.indexOf(className) != -1);
+}
+
+function abilityTargetPlayersMatch(selectionState, targetState, players)
+{
+	if (!players)
+		return true;
+
+	const validPlayers = players.split(/\s+/).filter(Boolean);
+	if (!validPlayers.length)
+		return true;
+
+	return playerCheck(selectionState, targetState, validPlayers);
+}
+
+function abilityEntityTargetMatches(target, selection)
+{
+	if (!target)
+		return false;
+
+	const ability = getActiveAbilitySelection(selection);
+	if (!ability || !ability.target || ability.target.type != "entity")
+		return false;
+
+	const selectionState = GetEntityState(selection[0]);
+	const targetState = GetEntityState(target);
+	if (!selectionState || !targetState)
+		return false;
+
+	if (!ability.target.allowSelf && selection.indexOf(target) != -1)
+		return false;
+
+	if (!abilityTargetPlayersMatch(selectionState, targetState, ability.target.players))
+		return false;
+
+	if (!abilityTargetClassesMatch(targetState, ability.target.classes))
+		return false;
+
+	return true;
+}
+
+function getAbilityCursor(ability, fallbackCursor)
+{
+	if (ability && ability.target && ability.target.cursor)
+		return ability.target.cursor;
+
+	return fallbackCursor;
+}
+
+g_UnitActions["ability-target-point"] = {
+	"execute": function(position, action, selection, queued, pushFront)
+	{
+		postAbilityCommand(action.abilityName, {
+			"position": position
+		}, selection, queued, pushFront);
+		cancelAbilityTargetSelection();
+		return true;
+	},
+	"preSelectedActionCheck": function(target, selection)
+	{
+		const ability = getActiveAbilitySelection(selection);
+		if (!ability || preSelectedAction != g_AbilityPreSelectedActionPrefix + "point")
+			return false;
+
+		return {
+			"type": "ability-target-point",
+			"cursor": getAbilityCursor(ability, "action-attack"),
+			"abilityName": ability.name,
+			"firstAbleEntity": selection[0]
+		};
+	},
+	"specificness": 1
+};
+
+g_UnitActions["ability-target-entity"] = {
+	"execute": function(position, action, selection, queued, pushFront)
+	{
+		postAbilityCommand(action.abilityName, {
+			"target": action.target
+		}, selection, queued, pushFront);
+		cancelAbilityTargetSelection();
+		return true;
+	},
+	"preSelectedActionCheck": function(target, selection)
+	{
+		const ability = getActiveAbilitySelection(selection);
+		if (!ability || preSelectedAction != g_AbilityPreSelectedActionPrefix + "entity")
+			return false;
+
+		if (!abilityEntityTargetMatches(target, selection))
+			return {
+				"type": "none",
+				"cursor": getAbilityCursor(ability, "action-attack-disabled"),
+				"target": null
+			};
+
+		return {
+			"type": "ability-target-entity",
+			"cursor": getAbilityCursor(ability, "action-attack"),
+			"abilityName": ability.name,
+			"target": target,
+			"firstAbleEntity": selection[0]
+		};
+	},
+	"specificness": 1
+};
+
+for (const action of ["ability-target-point", "ability-target-entity"])
+	if (g_UnitActionsSortedKeys.indexOf(action) == -1)
+		g_UnitActionsSortedKeys.push(action);
+
+g_UnitActionsSortedKeys.sort((a, b) => g_UnitActions[a].specificness - g_UnitActions[b].specificness);
+
+{
+	const superHandleInputBeforeGui = handleInputBeforeGui;
+	handleInputBeforeGui = function(ev)
+	{
+		if (g_AbilityTargetSelection && (!g_Selection.size() || !getActiveAbilitySelection(g_Selection.toList())))
+			cancelAbilityTargetSelection();
+
+		if (g_AbilityTargetSelection && ev.type == "mousemotion")
+			updateAbilityPlacementPreview();
+
+		return superHandleInputBeforeGui(ev);
+	};
 }
 
 function getSharedAbilities(unitEntStates)
@@ -36,7 +258,7 @@ g_SelectionPanels.Abilities = {
 
 		data.button.onPress = function()
 		{
-			performAbility(data.item.name);
+			performAbility(data.item);
 		};
 
 		data.button.enabled = controlsPlayer(data.player) && !data.item.autoTrigger && cooldownRemaining === 0;
@@ -51,6 +273,14 @@ g_SelectionPanels.Abilities = {
 		})));
 		if (data.item.tooltip)
 			tooltip.push(bodyFont(translate(data.item.tooltip)));
+		if (data.item.target && data.item.target.type == "entity")
+			tooltip.push(bodyFont(translate("Click the ability, then select a unit or entity target.")));
+		if (data.item.target && data.item.target.type == "point")
+			tooltip.push(bodyFont(translate("Click the ability, then select a ground target.")));
+		if (data.item.target && data.item.target.range)
+			tooltip.push(bodyFont(sprintf(translate("Target range: %(range)s meters"), {
+				"range": Math.ceil(data.item.target.range)
+			})));
 		if (data.item.autoTrigger)
 			tooltip.push(bodyFont(sprintf(translate("Auto-trigger: every %(seconds)s seconds"), {
 				"seconds": Math.ceil(data.item.autoTriggerInterval / 1000)

@@ -1,9 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Entity parent="units/athen/hero_iphicrates">
+<Entity parent="template_unit_infantry_melee_spearman">
+  <Identity>
+    <Civ>gaia</Civ>
+    <Phenotype>male</Phenotype>
+    <GenericName>War Chanter</GenericName>
+    <SpecificName>Example Aura Ability Unit</SpecificName>
+    <Icon>abilities/battle_cry_custom.png</Icon>
+    <SelectionGroupName>units/unit_abilities/war_chanter</SelectionGroupName>
+    <Classes datatype="tokens">Human CitizenSoldier Organic DemoAbilityUnit</Classes>
+    <VisibleClasses datatype="tokens">Soldier Infantry Demo Ability</VisibleClasses>
+  </Identity>
   <Abilities>
     <BattleCry>
       <Action>instant</Action>
-      <Icon>abilities/battle_cry.png</Icon>
+      <Icon>abilities/battle_cry_custom.png</Icon>
       <Cooldown>15000</Cooldown>
       <Tooltip>Trigger a short combat flourish on demand and briefly strengthen nearby friendly units.</Tooltip>
       <Animation>attack_melee</Animation>
@@ -45,7 +55,7 @@
     </BattleCry>
     <WarDrum>
       <Action>passive</Action>
-      <Icon>abilities/war_drum.png</Icon>
+      <Icon>abilities/war_pulse.png</Icon>
       <Cooldown>8000</Cooldown>
       <Tooltip>Automatically pulses in combat and grants a short local damage buff to nearby friendly units.</Tooltip>
       <AnimationVariant>combat</AnimationVariant>
@@ -77,4 +87,10 @@
       </AutoTrigger>
     </WarDrum>
   </Abilities>
+  <Builder disable=""/>
+  <Promotion disable=""/>
+  <ResourceGatherer disable=""/>
+  <VisualActor>
+    <Actor>units/unit_abilities/trap_setter.xml</Actor>
+  </VisualActor>
 </Entity>
