@@ -52,6 +52,8 @@ let statusCalls = [];
 let queryPlayers = undefined;
 let queryType = undefined;
 let aroundQueryPosition = undefined;
+let convertedOwner = undefined;
+let activeOrders = [];
 
 AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
 	"GetAllPlayers": () => [0, owner, ally, enemy],
@@ -131,7 +133,9 @@ AddMock(firstEntity, IID_UnitAI, {
 	"SelectAnimation": (name, once, speed) =>
 	{
 		resetAnimationCalled = name == "idle" && !once && speed == 1.0;
-	}
+	},
+	"Stop": () => activeOrders = [{ "type": "Stop" }],
+	"GetOrders": () => activeOrders
 });
 
 AddMock(localEffectEntity, IID_Position, {
@@ -184,7 +188,8 @@ AddMock(secondEntity, IID_Position, {
 });
 
 AddMock(secondEntity, IID_Ownership, {
-	"GetOwner": () => enemy
+	"GetOwner": () => enemy,
+	"SetOwner": newOwner => convertedOwner = newOwner
 });
 
 AddMock(secondEntity, IID_Identity, {
@@ -289,6 +294,7 @@ TS_ASSERT_UNEVAL_EQUALS(cmpAbilities.GetAbilityStates(), [{
 	"animation": "attack_melee",
 	"animationVariant": "combat",
 	"delay": 0,
+	"cancelOnOrderChange": false,
 	"autoTrigger": false,
 	"autoTriggerInterval": 0,
 	"target": {
@@ -310,6 +316,7 @@ TS_ASSERT_UNEVAL_EQUALS(cmpAbilities.GetAbilityStates(), [{
 	"animation": "",
 	"animationVariant": "",
 	"delay": 0,
+	"cancelOnOrderChange": false,
 	"autoTrigger": false,
 	"autoTriggerInterval": 0,
 	"target": {
@@ -531,6 +538,7 @@ TS_ASSERT_UNEVAL_EQUALS(cmpAutoAbilities.GetAbilityStates(), [{
 	"animation": "",
 	"animationVariant": "",
 	"delay": 0,
+	"cancelOnOrderChange": false,
 	"autoTrigger": true,
 	"autoTriggerInterval": 1000,
 	"target": {
@@ -640,7 +648,7 @@ const targetedTemplate = {
 			}
 		}
 	},
-	"MarkTarget": {
+		"MarkTarget": {
 		"Action": "unit-target",
 		"Icon": "technologies/fire_arrows.png",
 		"Cooldown": "2000",
@@ -655,15 +663,18 @@ const targetedTemplate = {
 			},
 			"AllowSelf": "false"
 		},
-		"DirectDamage": {
-			"Origin": "target",
-			"Damage": {
-				"Pierce": "11"
-			}
-		},
-		"Particles": {
-			"Template": "special/effects/hero_ability_aura",
-			"Origin": "target"
+			"DirectDamage": {
+				"Origin": "target",
+				"Damage": {
+					"Pierce": "11"
+				}
+			},
+			"OwnershipChange": {
+				"Origin": "target"
+			},
+			"Particles": {
+				"Template": "special/effects/hero_ability_aura",
+				"Origin": "target"
 		}
 	}
 };
@@ -691,6 +702,7 @@ TS_ASSERT_EQUALS(attackCalls.length, targetedAttackCount + 1);
 TS_ASSERT_EQUALS(attackCalls[targetedAttackCount].target, secondEntity);
 TS_ASSERT_EQUALS(attackCalls[targetedAttackCount].data.type, "MarkTarget.DirectDamage");
 TS_ASSERT_EQUALS(attackCalls[targetedAttackCount].data.attackData.Damage.Pierce, 11);
+TS_ASSERT_EQUALS(convertedOwner, owner);
 TS_ASSERT(!cmpTargetedAbilities.TriggerAbility("MarkTarget", {
 	"target": thirdEntity
 }));
@@ -711,6 +723,7 @@ const delayedTemplate = {
 		"Icon": "technologies/fire_arrows.png",
 		"Cooldown": "4000",
 		"Delay": "600",
+		"CancelOnOrderChange": "true",
 		"Target": {
 			"Type": "Point",
 			"Range": "20"
@@ -741,6 +754,7 @@ const delayedTemplate = {
 
 const cmpDelayedAbilities = ConstructComponent(firstEntity, "Abilities", delayedTemplate);
 TS_ASSERT_EQUALS(cmpDelayedAbilities.GetAbilityStates()[0].delay, 600);
+TS_ASSERT_EQUALS(cmpDelayedAbilities.GetAbilityStates()[0].cancelOnOrderChange, true);
 TS_ASSERT(cmpDelayedAbilities.TriggerAbility("DelayedBlast", {
 	"position": { "x": 17, "z": 19 }
 }));
@@ -767,6 +781,40 @@ TS_ASSERT_UNEVAL_EQUALS(aroundQueryPosition, [17, 19]);
 TS_ASSERT_EQUALS(playedSound, "attack");
 TS_ASSERT_EQUALS(attackCalls.length, 1);
 
+convertedOwner = undefined;
+activeOrders = [];
+const channelTemplate = {
+	"Convert": {
+		"Action": "unit-target",
+		"Icon": "technologies/fire_arrows.png",
+		"Cooldown": "4000",
+		"Delay": "500",
+		"CancelOnOrderChange": "true",
+		"Target": {
+			"Type": "Entity",
+			"Range": "20",
+			"TargetPlayers": {
+				"_string": "Enemy"
+			},
+			"Classes": {
+				"_string": "Unit"
+			}
+		},
+		"OwnershipChange": {
+			"Origin": "target"
+		}
+	}
+};
+
+const cmpChannelAbilities = ConstructComponent(firstEntity, "Abilities", channelTemplate);
+TS_ASSERT(cmpChannelAbilities.TriggerAbility("Convert", {
+	"target": secondEntity
+}));
+activeOrders = [{ "type": "Walk" }];
+cmpTimer.OnUpdate({ "turnLength": 0.6 });
+TS_ASSERT_EQUALS(convertedOwner, undefined);
+
+cmpChannelAbilities.OnDestroy();
 cmpDelayedAbilities.OnDestroy();
 cmpTargetedAbilities.OnDestroy();
 cmpAutoAbilities.OnDestroy();

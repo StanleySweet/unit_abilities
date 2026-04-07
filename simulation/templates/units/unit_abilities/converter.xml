@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="template_unit_support_female_citizen">
+  <Identity>
+    <Civ>gaia</Civ>
+    <Phenotype>male</Phenotype>
+    <SelectionGroupName>units/unit_abilities/converter</SelectionGroupName>
+    <GenericName>Converter</GenericName>
+    <SpecificName>Example Ownership-Change Unit</SpecificName>
+    <Icon>abilities/conversion.png</Icon>
+    <Classes datatype="tokens">Human Organic DemoAbilityUnit</Classes>
+    <VisibleClasses datatype="tokens">Support Demo Ability</VisibleClasses>
+  </Identity>
+  <Abilities>
+    <ConvertTarget>
+      <Action>unit-target</Action>
+      <Icon>abilities/conversion.png</Icon>
+      <Cooldown>18000</Cooldown>
+      <Delay>4500</Delay>
+      <CancelOnOrderChange>true</CancelOnOrderChange>
+      <Tooltip>Select an enemy organic unit and convert it if the caster keeps channeling.</Tooltip>
+      <Target>
+        <Type>Entity</Type>
+        <Range>22</Range>
+        <Cursor>action-attack</Cursor>
+        <TargetPlayers datatype="tokens">Enemy</TargetPlayers>
+        <Classes datatype="tokens">Unit Organic</Classes>
+        <AllowSelf>false</AllowSelf>
+      </Target>
+      <Animation>attack_melee</Animation>
+      <AnimationDuration>1200</AnimationDuration>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Origin>target</Origin>
+        <Duration>1200</Duration>
+      </Particles>
+      <OwnershipChange>
+        <Origin>target</Origin>
+      </OwnershipChange>
+      <Sound>attack</Sound>
+    </ConvertTarget>
+  </Abilities>
+  <Builder disable=""/>
+  <ResourceGatherer disable=""/>
+  <VisualActor>
+    <Actor>units/unit_abilities/converter.xml</Actor>
+  </VisualActor>
+</Entity>

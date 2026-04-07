@@ -20,6 +20,14 @@ Abilities.prototype.Schema =
 					"</element>" +
 				"</optional>" +
 				"<optional>" +
+					"<element name='CancelOnOrderChange' a:help='If true, delayed abilities are cancelled when the caster receives a different order before resolving.'>" +
+						"<choice>" +
+							"<value>true</value>" +
+							"<value>false</value>" +
+						"</choice>" +
+					"</element>" +
+				"</optional>" +
+				"<optional>" +
 					"<element name='Tooltip' a:help='Optional tooltip text shown in the GUI.'>" +
 						"<text/>" +
 					"</element>" +
@@ -265,6 +273,20 @@ Abilities.prototype.Schema =
 					"</element>" +
 				"</optional>" +
 				"<optional>" +
+					"<element name='OwnershipChange' a:help='Optional ownership transfer applied to a single entity when the ability is triggered.'>" +
+						"<interleave>" +
+							"<optional>" +
+								"<element name='Origin' a:help='Whether the ownership change should apply to the caster or the chosen target.'>" +
+									"<choice>" +
+										"<value>caster</value>" +
+										"<value>target</value>" +
+									"</choice>" +
+								"</element>" +
+							"</optional>" +
+						"</interleave>" +
+					"</element>" +
+				"</optional>" +
+				"<optional>" +
 					"<element name='AutoTrigger' a:help='Optional periodic auto-trigger configuration for passive hero abilities.'>" +
 						"<interleave>" +
 							"<element name='Interval' a:help='How often, in milliseconds, the ability should try to auto-trigger.'>" +
@@ -370,6 +392,7 @@ Abilities.prototype.GetAbilityStates = function()
 			"animation": ability.Animation || "",
 			"animationVariant": ability.AnimationVariant || "",
 			"delay": ability.Delay ? +ability.Delay : 0,
+			"cancelOnOrderChange": ability.CancelOnOrderChange == "true",
 			"autoTrigger": !!ability.AutoTrigger,
 			"autoTriggerInterval": ability.AutoTrigger ? +ability.AutoTrigger.Interval : 0,
 			"target": this.GetTargetState(ability.Target)
@@ -392,6 +415,7 @@ Abilities.prototype.TriggerAbility = function(name, data)
 
 	this.lastTriggered[name] = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).GetTime();
 
+	this.PrepareDelayedAbility(ability);
 	this.TriggerAnimation(ability);
 	this.ExecuteImmediateAbilityEffects(name, ability, targetContext);
 	this.ScheduleAbilityExecution(name, ability, targetContext);
@@ -470,9 +494,20 @@ Abilities.prototype.ProcessQueuedAbility = function(data, lateness)
 		return;
 
 	this.lastTriggered[data.name] = currentTime;
+	this.PrepareDelayedAbility(ability);
 	this.TriggerAnimation(ability);
 	this.ExecuteImmediateAbilityEffects(data.name, ability, targetContext);
 	this.ScheduleAbilityExecution(data.name, ability, targetContext);
+};
+
+Abilities.prototype.PrepareDelayedAbility = function(ability)
+{
+	if (!ability || ability.CancelOnOrderChange != "true" || !(ability.Delay > 0))
+		return;
+
+	const cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
+	if (cmpUnitAI && typeof cmpUnitAI.Stop == "function")
+		cmpUnitAI.Stop(false);
 };
 
 Abilities.prototype.ExecuteImmediateAbilityEffects = function(name, ability, targetContext)
@@ -497,7 +532,8 @@ Abilities.prototype.ScheduleAbilityExecution = function(name, ability, targetCon
 		delay,
 		{
 			"name": name,
-			"targetContext": this.SerializeTargetContext(targetContext)
+			"targetContext": this.SerializeTargetContext(targetContext),
+			"cancelOnOrderChange": ability.CancelOnOrderChange == "true"
 		});
 	this.delayedAbilityTimers.push(timer);
 };
@@ -508,11 +544,28 @@ Abilities.prototype.ExecuteDelayedAbility = function(data, lateness)
 	if (!ability)
 		return;
 
+	if (data.cancelOnOrderChange && !this.CanResolveDelayedAbility())
+		return;
+
 	const targetContext = this.DeserializeTargetContext(data.targetContext);
 	if (!targetContext)
 		return;
 
 	this.ExecuteAbilityEffects(data.name, ability, targetContext);
+};
+
+Abilities.prototype.CanResolveDelayedAbility = function()
+{
+	const cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
+	if (!cmpUnitAI || typeof cmpUnitAI.GetOrders != "function")
+		return true;
+
+	const orders = cmpUnitAI.GetOrders();
+	if (!orders || !orders.length)
+		return true;
+
+	const activeOrder = orders[0];
+	return !!activeOrder && activeOrder.type == "Stop";
 };
 
 Abilities.prototype.ExecuteAbilityEffects = function(name, ability, targetContext)
@@ -522,6 +575,7 @@ Abilities.prototype.ExecuteAbilityEffects = function(name, ability, targetContex
 		this.SpawnEntity(ability, targetContext);
 	this.ApplyBuff(name, ability, targetContext);
 	this.ApplyDirectDamage(name, ability, targetContext);
+	this.ApplyOwnershipChange(ability, targetContext);
 	this.ApplyAreaAttack(name, ability, targetContext);
 
 	if (ability.Sound)
@@ -1053,6 +1107,23 @@ Abilities.prototype.ApplyDirectDamage = function(name, ability, targetContext)
 		"attacker": this.entity,
 		"attackerOwner": owner
 	});
+};
+
+Abilities.prototype.ApplyOwnershipChange = function(ability, targetContext)
+{
+	if (!ability.OwnershipChange)
+		return;
+
+	const origin = this.GetEffectOriginContext(ability.OwnershipChange, targetContext);
+	if (!origin || origin.entity === undefined || origin.entity == this.entity)
+		return;
+
+	const cmpTargetOwnership = Engine.QueryInterface(origin.entity, IID_Ownership);
+	const cmpCasterOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
+	if (!cmpTargetOwnership || !cmpCasterOwnership)
+		return;
+
+	cmpTargetOwnership.SetOwner(cmpCasterOwnership.GetOwner());
 };
 
 Abilities.prototype.BuildAttackData = function(damageTemplate)
