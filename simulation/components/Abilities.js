@@ -73,6 +73,14 @@ Abilities.prototype.Schema =
 								"</element>" +
 							"</optional>" +
 							"<optional>" +
+								"<element name='RestrictedClasses' a:help='Optional whitespace-separated identity classes that disqualify an entity target.'>" +
+									"<attribute name='datatype'>" +
+										"<value>tokens</value>" +
+									"</attribute>" +
+									"<text/>" +
+								"</element>" +
+							"</optional>" +
+							"<optional>" +
 								"<element name='AllowSelf' a:help='Whether the caster may be selected as the entity target.'>" +
 									"<choice>" +
 										"<value>true</value>" +
@@ -405,6 +413,7 @@ Abilities.prototype.GetTargetState = function(target)
 			"previewTemplate": target.PreviewTemplate || "",
 			"players": this.GetTokenString(target.TargetPlayers),
 			"classes": this.GetTokenString(target.Classes),
+			"restrictedClasses": this.GetTokenString(target.RestrictedClasses),
 			"allowSelf": target.AllowSelf !== "false"
 	};
 };
@@ -790,6 +799,44 @@ Abilities.prototype.CanTargetEntity = function(ability, target)
 	return this.GetEntityTargetError(ability, target, false) == "none";
 };
 
+Abilities.prototype.GetIdentityClasses = function(cmpIdentity)
+{
+	if (!cmpIdentity)
+		return [];
+
+	if (typeof cmpIdentity.GetClassesList == "function")
+		return cmpIdentity.GetClassesList();
+
+	return [];
+};
+
+Abilities.prototype.HasAllIdentityClasses = function(cmpIdentity, requiredClasses)
+{
+	if (!requiredClasses.length)
+		return true;
+
+	if (!cmpIdentity)
+		return false;
+
+	if (typeof cmpIdentity.HasClass == "function")
+		return requiredClasses.every(className => cmpIdentity.HasClass(className));
+
+	const classes = this.GetIdentityClasses(cmpIdentity);
+	return requiredClasses.every(className => classes.indexOf(className) != -1);
+};
+
+Abilities.prototype.HasAnyIdentityClass = function(cmpIdentity, restrictedClasses)
+{
+	if (!restrictedClasses.length || !cmpIdentity)
+		return false;
+
+	if (typeof cmpIdentity.HasClass == "function")
+		return restrictedClasses.some(className => cmpIdentity.HasClass(className));
+
+	const classes = this.GetIdentityClasses(cmpIdentity);
+	return restrictedClasses.some(className => classes.indexOf(className) != -1);
+};
+
 Abilities.prototype.GetEntityTargetError = function(ability, target, ignoreRange)
 {
 	if (!target)
@@ -814,14 +861,18 @@ Abilities.prototype.GetEntityTargetError = function(ability, target, ignoreRange
 	}
 
 	const requiredClasses = this.GetTokenString(ability.Target && ability.Target.Classes).split(/\s+/).filter(Boolean);
-	if (!requiredClasses.length)
+	const restrictedClasses = this.GetTokenString(ability.Target && ability.Target.RestrictedClasses).split(/\s+/).filter(Boolean);
+	if (!requiredClasses.length && !restrictedClasses.length)
 		return "none";
 
 	const cmpIdentity = Engine.QueryInterface(target, IID_Identity);
 	if (!cmpIdentity)
 		return "identity";
 
-	return requiredClasses.every(className => cmpIdentity.HasClass(className)) ? "none" : "classes";
+	if (!this.HasAllIdentityClasses(cmpIdentity, requiredClasses))
+		return "classes";
+
+	return this.HasAnyIdentityClass(cmpIdentity, restrictedClasses) ? "restricted-classes" : "none";
 };
 
 Abilities.prototype.CanTargetPoint = function(ability, position)

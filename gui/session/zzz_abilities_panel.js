@@ -105,6 +105,19 @@ function abilityTargetClassesMatch(targetState, classes)
 		targetState.identity.classes && targetState.identity.classes.indexOf(className) != -1);
 }
 
+function abilityTargetRestrictedClassesMatch(targetState, classes)
+{
+	if (!classes)
+		return true;
+
+	const restrictedClasses = classes.split(/\s+/).filter(Boolean);
+	if (!restrictedClasses.length)
+		return true;
+
+	return !targetState || !targetState.identity || !restrictedClasses.some(className =>
+		targetState.identity.classes && targetState.identity.classes.indexOf(className) != -1);
+}
+
 function abilityTargetPlayersMatch(selectionState, targetState, players)
 {
 	if (!players)
@@ -138,6 +151,9 @@ function abilityEntityTargetMatches(target, selection)
 		return false;
 
 	if (!abilityTargetClassesMatch(targetState, ability.target.classes))
+		return false;
+
+	if (!abilityTargetRestrictedClassesMatch(targetState, ability.target.restrictedClasses))
 		return false;
 
 	return true;

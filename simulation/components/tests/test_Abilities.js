@@ -22,6 +22,7 @@ const thirdEntity = 103;
 const fourthEntity = 104;
 const fifthEntity = 105;
 const gaiaTargetEntity = 106;
+const restrictedTargetEntity = 107;
 const localEffectEntity = 301;
 const playerEntity = 1007;
 const allyPlayerEntity = 1008;
@@ -283,6 +284,20 @@ AddMock(gaiaTargetEntity, IID_Ownership, {
 
 AddMock(gaiaTargetEntity, IID_Identity, {
 	"HasClass": className => ["Unit", "Organic"].indexOf(className) != -1
+});
+
+AddMock(restrictedTargetEntity, IID_Position, {
+	"IsInWorld": () => true,
+	"GetPosition": () => ({ "x": 16, "y": 0, "z": 17 }),
+	"GetPosition2D": () => new Vector2D(16, 17)
+});
+
+AddMock(restrictedTargetEntity, IID_Ownership, {
+	"GetOwner": () => enemy
+});
+
+AddMock(restrictedTargetEntity, IID_Identity, {
+	"HasClass": className => ["Unit", "Organic", "Hero", "Titan"].indexOf(className) != -1
 });
 
 const firstTemplate = {
@@ -820,6 +835,62 @@ TS_ASSERT_EQUALS(addedEntityTemplate, "units/test_trap");
 TS_ASSERT_UNEVAL_EQUALS(spawnedJumpedTo, [90, 90]);
 casterPosition2D = new Vector2D(11, 13);
 casterPosition3D = new Vector3D(11, 0, 13);
+
+const restrictedTemplate = {
+	"ConvertTarget": {
+		"Action": "unit-target",
+		"Icon": "abilities/conversion.png",
+		"Cooldown": "18000",
+		"Target": {
+			"Type": "Entity",
+			"Range": "22",
+			"TargetPlayers": {
+				"_string": "Gaia Enemy"
+			},
+			"Classes": {
+				"_string": "Unit Organic"
+			},
+			"RestrictedClasses": {
+				"_string": "Hero Titan"
+			},
+			"AllowSelf": "false"
+		},
+		"OwnershipChange": {
+			"Origin": "target"
+		}
+	}
+};
+
+const cmpRestrictedAbilities = ConstructComponent(firstEntity, "Abilities", restrictedTemplate);
+TS_ASSERT_UNEVAL_EQUALS(cmpRestrictedAbilities.GetAbilityStates(), [{
+	"name": "ConvertTarget",
+	"action": "unit-target",
+	"icon": "abilities/conversion.png",
+	"cooldown": 18000,
+	"cooldownRemaining": 0,
+	"ready": true,
+	"tooltip": "",
+	"animation": "",
+	"animationVariant": "",
+	"delay": 0,
+	"cancelOnOrderChange": false,
+	"autoTrigger": false,
+	"autoTriggerInterval": 0,
+	"target": {
+		"type": "entity",
+		"range": 22,
+		"cursor": "",
+		"previewTemplate": "",
+		"players": "Gaia Enemy",
+		"classes": "Unit Organic",
+		"restrictedClasses": "Hero Titan",
+		"allowSelf": false
+	}
+}]);
+TS_ASSERT(cmpRestrictedAbilities.CanTargetEntity(restrictedTemplate.ConvertTarget, secondEntity));
+TS_ASSERT(cmpRestrictedAbilities.CanTargetEntity(restrictedTemplate.ConvertTarget, gaiaTargetEntity));
+TS_ASSERT(!cmpRestrictedAbilities.CanTargetEntity(restrictedTemplate.ConvertTarget, restrictedTargetEntity));
+TS_ASSERT_EQUALS(cmpRestrictedAbilities.GetEntityTargetError(restrictedTemplate.ConvertTarget, restrictedTargetEntity, false), "restricted-classes");
 
 addedLocalTemplate = undefined;
 addedEntityTemplate = undefined;
