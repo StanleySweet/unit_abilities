@@ -776,6 +776,7 @@ const targetedTemplate = {
 		"Cooldown": "3000",
 		"Target": {
 			"Type": "Point",
+			"Range": "4",
 			"MaxRange": "20",
 			"Cursor": "action-attack"
 		},
@@ -846,10 +847,13 @@ const targetedTemplate = {
 const cmpTargetedAbilities = ConstructComponent(firstEntity, "Abilities", targetedTemplate);
 TS_ASSERT(cmpTargetedAbilities.CanTargetPoint(targetedTemplate.DeployTrap, { "x": 18, "z": 20 }));
 TS_ASSERT(!cmpTargetedAbilities.CanTargetPoint(targetedTemplate.DeployTrap, { "x": 80, "z": 80 }));
+TS_ASSERT(!cmpTargetedAbilities.CanResolvePointTarget(targetedTemplate.DeployTrap, { "x": 18, "z": 20 }));
 TS_ASSERT(cmpTargetedAbilities.CanTargetEntity(targetedTemplate.MarkTarget, secondEntity));
 TS_ASSERT(cmpTargetedAbilities.CanTargetEntity(targetedTemplate.MarkTarget, gaiaTargetEntity));
 TS_ASSERT(!cmpTargetedAbilities.CanTargetEntity(targetedTemplate.MarkTarget, thirdEntity));
 TS_ASSERT(!cmpTargetedAbilities.CanTargetEntity(targetedTemplate.MarkTarget, firstEntity));
+casterPosition2D = new Vector2D(16, 18);
+casterPosition3D = new Vector3D(16, 0, 18);
 TS_ASSERT(cmpTargetedAbilities.TriggerAbility("DeployTrap", {
 	"position": { "x": 18, "z": 20 }
 }));
@@ -858,6 +862,8 @@ TS_ASSERT_UNEVAL_EQUALS(spawnedJumpedTo, [18, 20]);
 TS_ASSERT_EQUALS(spawnedOwner, owner);
 TS_ASSERT_EQUALS(queryType, "point");
 TS_ASSERT_UNEVAL_EQUALS(aroundQueryPosition, [18, 20]);
+casterPosition2D = new Vector2D(11, 13);
+casterPosition3D = new Vector3D(11, 0, 13);
 const targetedAttackCount = attackCalls.length;
 TS_ASSERT(cmpTargetedAbilities.TriggerAbility("MarkTarget", {
 	"target": secondEntity
@@ -904,9 +910,10 @@ TS_ASSERT_EQUALS(addedEntityTemplate, undefined);
 TS_ASSERT_EQUALS(spawnedJumpedTo, undefined);
 TS_ASSERT_EQUALS(walkedToPointRange.x, 90);
 TS_ASSERT_EQUALS(walkedToPointRange.z, 90);
+TS_ASSERT_EQUALS(walkedToPointRange.max, 4);
 TS_ASSERT_EQUALS(movedToPointRange, undefined);
-casterPosition2D = new Vector2D(85, 85);
-casterPosition3D = new Vector3D(85, 0, 85);
+casterPosition2D = new Vector2D(88, 88);
+casterPosition3D = new Vector3D(88, 0, 88);
 cmpTimer.OnUpdate({ "turnLength": 0.2 });
 TS_ASSERT_EQUALS(addedEntityTemplate, "units/test_trap");
 TS_ASSERT_UNEVAL_EQUALS(spawnedJumpedTo, [90, 90]);
@@ -1098,6 +1105,10 @@ TS_ASSERT_EQUALS(cmpTargetedAbilities.GetEffectDelay({ "EffectDelay": "25", "Del
 TS_ASSERT_EQUALS(cmpTargetedAbilities.GetTargetRange(undefined), undefined);
 TS_ASSERT_EQUALS(cmpTargetedAbilities.GetTargetRange({ "Range": "7" }), 7);
 TS_ASSERT_EQUALS(cmpTargetedAbilities.GetTargetRange({ "MaxRange": "9", "Range": "7" }), 9);
+TS_ASSERT_EQUALS(cmpTargetedAbilities.GetPointResolveRange(undefined), 0);
+TS_ASSERT_EQUALS(cmpTargetedAbilities.GetPointResolveRange({ "Range": "7" }), 7);
+TS_ASSERT_EQUALS(cmpTargetedAbilities.GetPointResolveRange({ "MaxRange": "9", "Range": "7" }), 7);
+TS_ASSERT_EQUALS(cmpTargetedAbilities.GetPointResolveRange({ "MaxRange": "9" }), 9);
 TS_ASSERT_EQUALS(cmpTargetedAbilities.GetNormalizedTargetType("weird"), "none");
 TS_ASSERT_EQUALS(cmpTargetedAbilities.GetTokenString({ "_string": "Player Enemy" }), "Player Enemy");
 
@@ -1150,10 +1161,12 @@ AddMock(queuedTargetEntity, IID_Identity, {
 });
 
 TS_ASSERT(cmpTargetedAbilities.IsTargetInRange({}, new Vector2D(999, 999)));
+TS_ASSERT(cmpTargetedAbilities.IsPointInRange(undefined, new Vector2D(999, 999)));
 AddMock(firstEntity, IID_Position, {
 	"IsInWorld": () => false
 });
 TS_ASSERT(!cmpTargetedAbilities.IsTargetInRange({ "MaxRange": "10" }, new Vector2D(1, 1)));
+TS_ASSERT(!cmpTargetedAbilities.IsPointInRange(10, new Vector2D(1, 1)));
 TS_ASSERT_EQUALS(cmpTargetedAbilities.GetCasterRotation(), 0);
 AddMock(firstEntity, IID_Position, {
 	"IsInWorld": () => true,
@@ -1161,6 +1174,8 @@ AddMock(firstEntity, IID_Position, {
 	"GetPosition2D": () => casterPosition2D,
 	"GetRotation": () => ({ "x": 0, "y": 1.25, "z": 0 })
 });
+TS_ASSERT(cmpTargetedAbilities.CanResolvePointTarget(targetedTemplate.DeployTrap, { "x": 11, "z": 16 }));
+TS_ASSERT(!cmpTargetedAbilities.CanResolvePointTarget(targetedTemplate.DeployTrap, { "x": 18, "z": 20 }));
 
 TS_ASSERT_EQUALS(cmpTargetedAbilities.SerializeTargetContext(undefined), undefined);
 TS_ASSERT_EQUALS(cmpTargetedAbilities.DeserializeTargetContext(undefined), undefined);

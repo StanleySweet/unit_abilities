@@ -47,7 +47,7 @@ Abilities.prototype.Schema =
 								"</choice>" +
 							"</element>" +
 							"<optional>" +
-								"<element name='Range' a:help='Optional maximum distance from the caster to the selected target.'>" +
+								"<element name='Range' a:help='Optional targeting distance. For point targets with MaxRange, this becomes the required resolve distance once the caster reaches the point.'>" +
 									"<ref name='nonNegativeDecimal'/>" +
 								"</element>" +
 							"</optional>" +
@@ -397,6 +397,17 @@ Abilities.prototype.GetTargetRange = function(target)
 	return target.Range !== undefined ? +target.Range : undefined;
 };
 
+Abilities.prototype.GetPointResolveRange = function(target)
+{
+	if (!target)
+		return 0;
+
+	if (target.Range !== undefined)
+		return +target.Range;
+
+	return this.GetTargetRange(target) || 0;
+};
+
 Abilities.prototype.GetRemainingCooldown = function(name)
 {
 	const cooldown = this.GetCooldown(name);
@@ -506,8 +517,8 @@ Abilities.prototype.TryQueueAbilityInRange = function(name, ability, data)
 
 	if (targetType == "point" && data && data.position)
 	{
-		if (this.CanTargetPoint(ability, data.position) ||
-			!this.IssueMoveToPointRange(cmpUnitAI, data.position.x, data.position.z, this.GetTargetRange(ability.Target)))
+		if (this.CanResolvePointTarget(ability, data.position) ||
+			!this.IssueMoveToPointRange(cmpUnitAI, data.position.x, data.position.z, this.GetPointResolveRange(ability.Target)))
 			return false;
 
 		this.QueueAbilityRetry(name, {
@@ -884,7 +895,7 @@ Abilities.prototype.ResolveTargetContext = function(ability, data)
 	}
 
 	const position = data && data.position;
-	if (!this.CanTargetPoint(ability, position))
+	if (!this.CanResolvePointTarget(ability, position))
 		return undefined;
 
 	return {
@@ -992,9 +1003,21 @@ Abilities.prototype.CanTargetPoint = function(ability, position)
 	return this.IsTargetInRange(ability.Target, this.AsVector2D(position));
 };
 
+Abilities.prototype.CanResolvePointTarget = function(ability, position)
+{
+	if (!position)
+		return false;
+
+	return this.IsPointInRange(this.GetPointResolveRange(ability.Target), this.AsVector2D(position));
+};
+
 Abilities.prototype.IsTargetInRange = function(target, position)
 {
-	const range = this.GetTargetRange(target);
+	return this.IsPointInRange(this.GetTargetRange(target), position);
+};
+
+Abilities.prototype.IsPointInRange = function(range, position)
+{
 	if (range === undefined)
 		return true;
 

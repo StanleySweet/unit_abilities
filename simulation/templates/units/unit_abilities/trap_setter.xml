@@ -8,6 +8,7 @@
       <Tooltip>Place a snare on the ground. Enemy units that step into it are slowed while it remains armed.</Tooltip>
       <Target>
         <Type>Point</Type>
+        <Range>4</Range>
         <MaxRange>20</MaxRange>
         <Cursor>action-attack</Cursor>
         <PreviewTemplate>special/unit_abilities/trap_marker</PreviewTemplate>
