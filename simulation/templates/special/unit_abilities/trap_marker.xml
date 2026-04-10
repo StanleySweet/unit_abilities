@@ -11,21 +11,19 @@
         <TargetPlayers datatype="tokens">Enemy</TargetPlayers>
         <Classes datatype="tokens">Unit</Classes>
       </Target>
-      <DirectDamage>
+      <Buff>
         <Origin>target</Origin>
-        <ApplyStatus>
-          <Snared>
-            <Duration>4000</Duration>
-            <Stackability>Replace</Stackability>
-            <Modifiers>
-              <SnareSpeed>
-                <Paths datatype="tokens">UnitMotion/WalkSpeed</Paths>
-                <Multiply>0.45</Multiply>
-              </SnareSpeed>
-            </Modifiers>
-          </Snared>
-        </ApplyStatus>
-      </DirectDamage>
+        <Range>4</Range>
+        <Duration>4000</Duration>
+        <TargetPlayers datatype="tokens">Enemy</TargetPlayers>
+        <Stackability>Replace</Stackability>
+        <Modifiers>
+          <SnareSpeed>
+            <Paths datatype="tokens">UnitMotion/WalkSpeed</Paths>
+            <Multiply>0.45</Multiply>
+          </SnareSpeed>
+        </Modifiers>
+      </Buff>
       <DestroyEntity>
         <Origin>caster</Origin>
       </DestroyEntity>
