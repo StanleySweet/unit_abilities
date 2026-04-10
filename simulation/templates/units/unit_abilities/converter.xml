@@ -22,7 +22,7 @@
         <Type>Entity</Type>
         <Range>22</Range>
         <Cursor>action-attack</Cursor>
-        <TargetPlayers datatype="tokens">Enemy</TargetPlayers>
+        <TargetPlayers datatype="tokens">Gaia Enemy</TargetPlayers>
         <Classes datatype="tokens">Unit Organic</Classes>
         <AllowSelf>false</AllowSelf>
       </Target>

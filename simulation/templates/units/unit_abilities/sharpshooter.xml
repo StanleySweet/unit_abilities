@@ -20,23 +20,23 @@
         <Type>Entity</Type>
         <Range>32</Range>
         <Cursor>action-attack</Cursor>
-        <TargetPlayers datatype="tokens">Enemy</TargetPlayers>
+        <TargetPlayers datatype="tokens">Gaia Enemy</TargetPlayers>
         <Classes datatype="tokens">Unit Organic</Classes>
         <AllowSelf>false</AllowSelf>
       </Target>
       <Animation>attack_ranged</Animation>
       <AnimationDuration>1100</AnimationDuration>
-      <Particles>
-        <Template>special/effects/hero_ability_aura</Template>
-        <Origin>target</Origin>
-        <Duration>900</Duration>
-      </Particles>
       <DirectDamage>
         <Origin>target</Origin>
         <Damage>
           <Pierce>2000</Pierce>
         </Damage>
       </DirectDamage>
+      <Projectile>
+        <Speed>100</Speed>
+        <Gravity>50</Gravity>
+        <LaunchPoint y="3"/>
+      </Projectile>
       <Sound>attack</Sound>
     </DeadeyeShot>
   </Abilities>

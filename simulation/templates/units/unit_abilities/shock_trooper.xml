@@ -25,7 +25,7 @@
       </Particles>
       <AreaAttack>
         <Range>18</Range>
-        <TargetPlayers datatype="tokens">Enemy</TargetPlayers>
+        <TargetPlayers datatype="tokens">Gaia Enemy</TargetPlayers>
         <Damage>
           <Hack>1000</Hack>
           <Crush>1000</Crush>
