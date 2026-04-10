@@ -61,6 +61,7 @@ let delayedHitCalls = [];
 let casterPosition2D = new Vector2D(11, 13);
 let casterPosition3D = new Vector3D(11, 0, 13);
 let movedToPointRange = undefined;
+let walkedToPointRange = undefined;
 
 AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
 	"GetAllPlayers": () => [0, owner, ally, enemy],
@@ -169,6 +170,11 @@ AddMock(firstEntity, IID_UnitAI, {
 	},
 	"Stop": () => activeOrders = [{ "type": "Stop" }],
 	"GetOrders": () => activeOrders,
+	"WalkToPointRange": (x, z, min, max) =>
+	{
+		walkedToPointRange = { "x": x, "z": z, "min": min, "max": max };
+		return true;
+	},
 	"MoveToPointRange": (x, z, min, max) =>
 	{
 		movedToPointRange = { "x": x, "z": z, "min": min, "max": max };
@@ -819,6 +825,7 @@ TS_ASSERT(!cmpTargetedAbilities.TriggerAbility("MarkTarget", {
 }));
 cmpTimer.OnUpdate({ "turnLength": 3.0 });
 movedToPointRange = undefined;
+walkedToPointRange = undefined;
 addedEntityTemplate = undefined;
 spawnedJumpedTo = undefined;
 TS_ASSERT(cmpTargetedAbilities.TriggerAbility("DeployTrap", {
@@ -826,8 +833,9 @@ TS_ASSERT(cmpTargetedAbilities.TriggerAbility("DeployTrap", {
 }));
 TS_ASSERT_EQUALS(addedEntityTemplate, undefined);
 TS_ASSERT_EQUALS(spawnedJumpedTo, undefined);
-TS_ASSERT_EQUALS(movedToPointRange.x, 90);
-TS_ASSERT_EQUALS(movedToPointRange.z, 90);
+TS_ASSERT_EQUALS(walkedToPointRange.x, 90);
+TS_ASSERT_EQUALS(walkedToPointRange.z, 90);
+TS_ASSERT_EQUALS(movedToPointRange, undefined);
 casterPosition2D = new Vector2D(85, 85);
 casterPosition3D = new Vector3D(85, 0, 85);
 cmpTimer.OnUpdate({ "turnLength": 0.2 });

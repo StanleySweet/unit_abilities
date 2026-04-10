@@ -488,9 +488,15 @@ Abilities.prototype.TryQueueAbilityInRange = function(name, ability, data)
 
 	if (targetType == "point" && data && data.position)
 	{
+		const moveToPoint = typeof cmpUnitAI.WalkToPointRange == "function" ?
+			(x, z, min, max) => cmpUnitAI.WalkToPointRange(x, z, min, max, false, false) :
+			typeof cmpUnitAI.MoveToPointRange == "function" ?
+				(x, z, min, max) => cmpUnitAI.MoveToPointRange(x, z, min, max) :
+				undefined;
+
 		if (this.CanTargetPoint(ability, data.position) ||
-			typeof cmpUnitAI.MoveToPointRange != "function" ||
-			!cmpUnitAI.MoveToPointRange(data.position.x, data.position.z, 0, +ability.Target.Range))
+			!moveToPoint ||
+			!moveToPoint(data.position.x, data.position.z, 0, +ability.Target.Range))
 			return false;
 
 		this.QueueAbilityRetry(name, {
