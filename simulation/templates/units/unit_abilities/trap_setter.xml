@@ -5,7 +5,7 @@
       <Action>point-target</Action>
       <Icon>abilities/snare_trap.png</Icon>
       <Cooldown>10000</Cooldown>
-      <Tooltip>Place a snare on the ground. Units near the placement point are slowed when it is set.</Tooltip>
+      <Tooltip>Place a snare on the ground. Enemy units that step into it are slowed while it remains armed.</Tooltip>
       <Target>
         <Type>Point</Type>
         <Range>20</Range>
@@ -25,21 +25,6 @@
         <Owner>caster</Owner>
         <Duration>12000</Duration>
       </SpawnEntity>
-      <Buff>
-        <Origin>target</Origin>
-        <Range>4</Range>
-        <Duration>5000</Duration>
-        <TargetPlayers datatype="tokens">Player Ally MutualAlly Enemy Neutral</TargetPlayers>
-        <IncludeSelf>false</IncludeSelf>
-        <Stackability>Replace</Stackability>
-        <Modifiers>
-          <SnareTrapSlow>
-            <Paths datatype="tokens">UnitMotion/WalkSpeed</Paths>
-            <Affects datatype="tokens">Unit</Affects>
-            <Multiply>0.45</Multiply>
-          </SnareTrapSlow>
-        </Modifiers>
-      </Buff>
       <Sound>attack</Sound>
     </SnareTrap>
   </Abilities>

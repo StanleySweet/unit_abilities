@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Entity parent="template_unit">
+  <Auras datatype="tokens">units/unit_abilities/trap_snare</Auras>
   <Cost>
     <Population>0</Population>
     <BuildTime>0</BuildTime>
@@ -33,6 +34,7 @@
     <BlockFoundation>false</BlockFoundation>
     <BlockConstruction>false</BlockConstruction>
   </Obstruction>
+  <Selectable disable=""/>
   <Sound>
     <SoundGroups/>
   </Sound>

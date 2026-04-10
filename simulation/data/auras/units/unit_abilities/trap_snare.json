@@ -1,0 +1,11 @@
+{
+	"type": "range",
+	"radius": 4,
+	"affects": ["Unit"],
+	"affectedPlayers": ["Enemy"],
+	"modifications": [
+		{ "value": "UnitMotion/WalkSpeed", "multiply": 0.45 }
+	],
+	"auraName": "Snare Trap",
+	"auraDescription": "Enemy units in range are slowed while the trap remains armed."
+}

@@ -33,6 +33,7 @@
     <BlockFoundation>false</BlockFoundation>
     <BlockConstruction>false</BlockConstruction>
   </Obstruction>
+  <Selectable disable=""/>
   <Sound>
     <SoundGroups/>
   </Sound>

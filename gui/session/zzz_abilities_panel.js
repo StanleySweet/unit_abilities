@@ -274,9 +274,9 @@ g_SelectionPanels.Abilities = {
 		if (data.item.tooltip)
 			tooltip.push(bodyFont(translate(data.item.tooltip)));
 		if (data.item.target && data.item.target.type == "entity")
-			tooltip.push(bodyFont(translate("Click the ability, then select a unit or entity target.")));
+			tooltip.push(bodyFont(translate("Click the ability, then right-click a unit or entity target.")));
 		if (data.item.target && data.item.target.type == "point")
-			tooltip.push(bodyFont(translate("Click the ability, then select a ground target.")));
+			tooltip.push(bodyFont(translate("Click the ability, then right-click a ground target.")));
 		if (data.item.target && data.item.target.range)
 			tooltip.push(bodyFont(sprintf(translate("Target range: %(range)s meters"), {
 				"range": Math.ceil(data.item.target.range)
@@ -298,6 +298,39 @@ g_SelectionPanels.Abilities = {
 		return true;
 	}
 };
+
+{
+	const superHandleInputAfterGui = handleInputAfterGui;
+	handleInputAfterGui = function(ev)
+	{
+		if (g_AbilityTargetSelection && inputState == INPUT_PRESELECTEDACTION && preSelectedAction != ACTION_NONE)
+		{
+			if (ev.type == "mousebuttondown" && ev.button == SDL_BUTTON_RIGHT)
+			{
+				const action = determineAction(ev.x, ev.y);
+				if (!action)
+					return false;
+
+				if (!Engine.HotkeyIsPressed("session.queue") && !Engine.HotkeyIsPressed("session.orderone"))
+					cancelAbilityTargetSelection();
+
+				return doAction(action, ev);
+			}
+
+			if (ev.type == "mousebuttondown" && ev.button == SDL_BUTTON_LEFT)
+			{
+				cancelAbilityTargetSelection();
+				g_DragStart = new Vector2D(ev.x, ev.y);
+				inputState = INPUT_SELECTING;
+				if (ev.clicks == 1 || clickedEntity == INVALID_ENTITY)
+					clickedEntity = Engine.PickEntityAtPoint(ev.x, ev.y);
+				return true;
+			}
+		}
+
+		return superHandleInputAfterGui(ev);
+	};
+}
 
 {
 	const superGetNumberOfRightPanelButtons = getNumberOfRightPanelButtons;

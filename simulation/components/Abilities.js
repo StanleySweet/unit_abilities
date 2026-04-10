@@ -273,6 +273,40 @@ Abilities.prototype.Schema =
 					"</element>" +
 				"</optional>" +
 				"<optional>" +
+					"<element name='Projectile' a:help='Optional projectile presentation for direct damage abilities, resolving damage on impact instead of instantly.'>" +
+						"<interleave>" +
+							"<element name='Speed' a:help='Projectile speed in meters per second.'>" +
+								"<ref name='positiveDecimal'/>" +
+							"</element>" +
+							"<element name='Gravity' a:help='Projectile gravity affecting the flight arc.'>" +
+								"<ref name='nonNegativeDecimal'/>" +
+							"</element>" +
+							"<optional>" +
+								"<element name='LaunchPoint' a:help='Delta from the caster position where to launch the projectile.'>" +
+									"<attribute name='y'>" +
+										"<data type='decimal'/>" +
+									"</attribute>" +
+								"</element>" +
+							"</optional>" +
+							"<optional>" +
+								"<element name='ActorName' a:help='Actor of the projectile animation.'>" +
+									"<text/>" +
+								"</element>" +
+							"</optional>" +
+							"<optional>" +
+								"<element name='ImpactActorName' a:help='Actor of the projectile impact animation.'>" +
+									"<text/>" +
+								"</element>" +
+							"</optional>" +
+							"<optional>" +
+								"<element name='ImpactAnimationLifetime' a:help='Length of the projectile impact animation.'>" +
+									"<ref name='positiveDecimal'/>" +
+								"</element>" +
+							"</optional>" +
+						"</interleave>" +
+					"</element>" +
+				"</optional>" +
+				"<optional>" +
 					"<element name='OwnershipChange' a:help='Optional ownership transfer applied to a single entity when the ability is triggered.'>" +
 						"<interleave>" +
 							"<optional>" +
@@ -425,24 +459,44 @@ Abilities.prototype.TriggerAbility = function(name, data)
 
 Abilities.prototype.TryQueueAbilityInRange = function(name, ability, data)
 {
-	if (this.GetNormalizedTargetType(ability.Target && ability.Target.Type) != "entity" || !data || !data.target)
-		return false;
-
-	if (this.GetEntityTargetError(ability, data.target, false) != "range")
-		return false;
-
 	const cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
-	if (!cmpUnitAI || typeof cmpUnitAI.MoveToTargetRangeExplicit != "function")
+	if (!cmpUnitAI)
 		return false;
 
-	if (!cmpUnitAI.MoveToTargetRangeExplicit(data.target, 0, +ability.Target.Range))
-		return false;
+	const targetType = this.GetNormalizedTargetType(ability.Target && ability.Target.Type);
+	if (targetType == "entity" && data && data.target)
+	{
+		if (this.GetEntityTargetError(ability, data.target, false) != "range" ||
+			typeof cmpUnitAI.MoveToTargetRangeExplicit != "function" ||
+			!cmpUnitAI.MoveToTargetRangeExplicit(data.target, 0, +ability.Target.Range))
+			return false;
 
-	this.QueueAbilityRetry(name, data.target);
-	return true;
+		this.QueueAbilityRetry(name, {
+			"target": data.target
+		});
+		return true;
+	}
+
+	if (targetType == "point" && data && data.position)
+	{
+		if (this.CanTargetPoint(ability, data.position) ||
+			typeof cmpUnitAI.MoveToPointRange != "function" ||
+			!cmpUnitAI.MoveToPointRange(data.position.x, data.position.z, 0, +ability.Target.Range))
+			return false;
+
+		this.QueueAbilityRetry(name, {
+			"position": {
+				"x": data.position.x,
+				"z": data.position.z
+			}
+		});
+		return true;
+	}
+
+	return false;
 };
 
-Abilities.prototype.QueueAbilityRetry = function(name, target)
+Abilities.prototype.QueueAbilityRetry = function(name, data)
 {
 	const token = String(this.nextQueuedAbilityToken++);
 	this.queuedAbilityTimers[token] = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).SetInterval(
@@ -454,7 +508,8 @@ Abilities.prototype.QueueAbilityRetry = function(name, target)
 		{
 			"token": token,
 			"name": name,
-			"target": target,
+			"target": data && data.target,
+			"position": data && data.position,
 			"expires": Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).GetTime() + 15000
 		});
 };
@@ -478,14 +533,22 @@ Abilities.prototype.ProcessQueuedAbility = function(data, lateness)
 		return;
 	}
 
-	const targetError = this.GetEntityTargetError(ability, data.target, true);
-	if (targetError != "none" && targetError != "range")
+	const targetType = this.GetNormalizedTargetType(ability.Target && ability.Target.Type);
+	let targetContext = undefined;
+	if (targetType == "entity")
 	{
-		this.CancelQueuedAbilityTimer(data.token);
-		return;
-	}
+		const targetError = this.GetEntityTargetError(ability, data.target, true);
+		if (targetError != "none" && targetError != "range")
+		{
+			this.CancelQueuedAbilityTimer(data.token);
+			return;
+		}
 
-	const targetContext = this.ResolveTargetContext(ability, { "target": data.target });
+		targetContext = this.ResolveTargetContext(ability, { "target": data.target });
+	}
+	else if (targetType == "point")
+		targetContext = this.ResolveTargetContext(ability, { "position": data.position });
+
 	if (!targetContext)
 		return;
 
@@ -672,6 +735,16 @@ Abilities.prototype.GetEntityPosition = function(entity)
 
 	const pos = cmpPosition.GetPosition();
 	return this.AsVector2D({ "x": pos.x, "z": pos.z });
+};
+
+Abilities.prototype.GetEntityPosition3D = function(entity)
+{
+	const cmpPosition = Engine.QueryInterface(entity, IID_Position);
+	if (!cmpPosition || !cmpPosition.IsInWorld() || typeof cmpPosition.GetPosition != "function")
+		return undefined;
+
+	const pos = cmpPosition.GetPosition();
+	return new Vector3D(pos.x, pos.y, pos.z);
 };
 
 Abilities.prototype.GetContextForEntity = function(entity)
@@ -1101,12 +1174,88 @@ Abilities.prototype.ApplyDirectDamage = function(name, ability, targetContext)
 	const owner = cmpOwnership ? cmpOwnership.GetOwner() : INVALID_PLAYER;
 	const attackData = this.BuildAttackData(ability.DirectDamage.Damage);
 
+	if (ability.Projectile && this.ApplyProjectileDirectDamage(name, ability, origin.entity, attackData, owner))
+		return;
+
 	AttackHelper.HandleAttackEffects(origin.entity, {
 		"type": name + ".DirectDamage",
 		"attackData": attackData,
 		"attacker": this.entity,
 		"attackerOwner": owner
 	});
+};
+
+Abilities.prototype.ApplyProjectileDirectDamage = function(name, ability, target, attackData, owner)
+{
+	const selfPosition = this.GetEntityPosition3D(this.entity);
+	const targetPosition = this.GetEntityPosition3D(target);
+	if (!selfPosition || !targetPosition)
+		return false;
+
+	const cmpProjectileManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_ProjectileManager);
+	const cmpDelayedDamage = Engine.QueryInterface(SYSTEM_ENTITY, IID_DelayedDamage);
+	const cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
+	if (!cmpProjectileManager || !cmpDelayedDamage || !cmpTimer)
+		return false;
+
+	const projectile = ability.Projectile;
+	const horizSpeed = +projectile.Speed;
+	if (!(horizSpeed > 0))
+		return false;
+
+	let actorName = projectile.ActorName || "";
+	const impactActorName = projectile.ImpactActorName || "";
+	const impactAnimationLifetime = +projectile.ImpactAnimationLifetime || 0;
+	let launchPoint = selfPosition;
+
+	const cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
+	if (cmpVisual)
+	{
+		if (!actorName && typeof cmpVisual.GetProjectileActor == "function")
+			actorName = cmpVisual.GetProjectileActor();
+
+		if (typeof cmpVisual.GetProjectileLaunchPoint == "function")
+		{
+			const visualActorLaunchPoint = cmpVisual.GetProjectileLaunchPoint();
+			if (visualActorLaunchPoint && typeof visualActorLaunchPoint.length == "function" && visualActorLaunchPoint.length() > 0)
+				launchPoint = visualActorLaunchPoint;
+		}
+	}
+
+	if (launchPoint == selfPosition && projectile.LaunchPoint)
+		launchPoint = Vector3D.add(selfPosition, new Vector3D(0, +projectile.LaunchPoint["@y"], 0));
+
+	const realHorizDistance = targetPosition.horizDistanceTo(selfPosition);
+	const delay = realHorizDistance / horizSpeed * 1000;
+	const projectileId = cmpProjectileManager.LaunchProjectileAtPoint(
+		launchPoint,
+		targetPosition,
+		horizSpeed,
+		+projectile.Gravity,
+		actorName,
+		impactActorName,
+		impactAnimationLifetime);
+
+	let attackImpactSound = "";
+	const cmpSound = Engine.QueryInterface(this.entity, IID_Sound);
+	if (cmpSound && typeof cmpSound.GetSoundGroup == "function")
+		attackImpactSound = cmpSound.GetSoundGroup("attack_impact_ranged") || "";
+
+	const directionDistance = realHorizDistance || 1;
+	cmpTimer.SetTimeout(SYSTEM_ENTITY, IID_DelayedDamage, "Hit", delay, {
+		"type": name + ".DirectDamage",
+		"attackData": attackData,
+		"attacker": this.entity,
+		"attackerOwner": owner,
+		"target": target,
+		"position": targetPosition,
+		"projectileId": projectileId,
+		"direction": Vector3D.sub(targetPosition, selfPosition).div(directionDistance),
+		"attackImpactSound": attackImpactSound,
+		"friendlyFire": false
+	});
+
+	return true;
 };
 
 Abilities.prototype.ApplyOwnershipChange = function(ability, targetContext)
