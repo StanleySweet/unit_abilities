@@ -20,6 +20,11 @@ Abilities.prototype.Schema =
 					"</element>" +
 				"</optional>" +
 				"<optional>" +
+					"<element name='EffectDelay' a:help='Upstream-style alias for Delay, in milliseconds before the ability effects resolve.'>" +
+						"<ref name='nonNegativeDecimal'/>" +
+					"</element>" +
+				"</optional>" +
+				"<optional>" +
 					"<element name='CancelOnOrderChange' a:help='If true, delayed abilities are cancelled when the caster receives a different order before resolving.'>" +
 						"<choice>" +
 							"<value>true</value>" +
@@ -43,6 +48,11 @@ Abilities.prototype.Schema =
 							"</element>" +
 							"<optional>" +
 								"<element name='Range' a:help='Optional maximum distance from the caster to the selected target.'>" +
+									"<ref name='nonNegativeDecimal'/>" +
+								"</element>" +
+							"</optional>" +
+							"<optional>" +
+								"<element name='MaxRange' a:help='Upstream-style alias for the maximum targeting distance from the caster.'>" +
 									"<ref name='nonNegativeDecimal'/>" +
 								"</element>" +
 							"</optional>" +
@@ -365,6 +375,28 @@ Abilities.prototype.GetCooldown = function(name)
 	return ability ? +ability.Cooldown : undefined;
 };
 
+Abilities.prototype.GetEffectDelay = function(ability)
+{
+	if (!ability)
+		return 0;
+
+	if (ability.EffectDelay !== undefined)
+		return +ability.EffectDelay;
+
+	return ability.Delay !== undefined ? +ability.Delay : 0;
+};
+
+Abilities.prototype.GetTargetRange = function(target)
+{
+	if (!target)
+		return undefined;
+
+	if (target.MaxRange !== undefined)
+		return +target.MaxRange;
+
+	return target.Range !== undefined ? +target.Range : undefined;
+};
+
 Abilities.prototype.GetRemainingCooldown = function(name)
 {
 	const cooldown = this.GetCooldown(name);
@@ -394,7 +426,7 @@ Abilities.prototype.GetTargetState = function(target)
 	const targetType = this.GetNormalizedTargetType(target.Type);
 		return {
 			"type": targetType,
-			"range": target.Range !== undefined ? +target.Range : 0,
+			"range": this.GetTargetRange(target) || 0,
 			"cursor": target.Cursor || "",
 			"previewTemplate": target.PreviewTemplate || "",
 			"players": this.GetTokenString(target.TargetPlayers),
@@ -420,7 +452,7 @@ Abilities.prototype.GetAbilityStates = function()
 			"tooltip": ability.Tooltip || "",
 			"animation": ability.Animation || "",
 			"animationVariant": ability.AnimationVariant || "",
-			"delay": ability.Delay ? +ability.Delay : 0,
+			"delay": this.GetEffectDelay(ability),
 			"cancelOnOrderChange": ability.CancelOnOrderChange == "true",
 			"autoTrigger": !!ability.AutoTrigger,
 			"autoTriggerInterval": ability.AutoTrigger ? +ability.AutoTrigger.Interval : 0,
@@ -463,7 +495,7 @@ Abilities.prototype.TryQueueAbilityInRange = function(name, ability, data)
 	if (targetType == "entity" && data && data.target)
 	{
 		if (this.GetEntityTargetError(ability, data.target, false) != "range" ||
-			!this.IssueMoveToEntityRange(cmpUnitAI, data.target, +ability.Target.Range))
+			!this.IssueMoveToEntityRange(cmpUnitAI, data.target, this.GetTargetRange(ability.Target)))
 			return false;
 
 		this.QueueAbilityRetry(name, {
@@ -475,7 +507,7 @@ Abilities.prototype.TryQueueAbilityInRange = function(name, ability, data)
 	if (targetType == "point" && data && data.position)
 	{
 		if (this.CanTargetPoint(ability, data.position) ||
-			!this.IssueMoveToPointRange(cmpUnitAI, data.position.x, data.position.z, +ability.Target.Range))
+			!this.IssueMoveToPointRange(cmpUnitAI, data.position.x, data.position.z, this.GetTargetRange(ability.Target)))
 			return false;
 
 		this.QueueAbilityRetry(name, {
@@ -611,7 +643,7 @@ Abilities.prototype.ProcessQueuedAbility = function(data, lateness)
 
 Abilities.prototype.PrepareDelayedAbility = function(ability)
 {
-	if (!ability || ability.CancelOnOrderChange != "true" || !(ability.Delay > 0))
+	if (!ability || ability.CancelOnOrderChange != "true" || !(this.GetEffectDelay(ability) > 0))
 		return;
 
 	const cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
@@ -627,7 +659,7 @@ Abilities.prototype.ExecuteImmediateAbilityEffects = function(name, ability, tar
 
 Abilities.prototype.ScheduleAbilityExecution = function(name, ability, targetContext)
 {
-	const delay = ability.Delay ? +ability.Delay : 0;
+	const delay = this.GetEffectDelay(ability);
 	if (delay <= 0)
 	{
 		this.ExecuteAbilityEffects(name, ability, targetContext);
@@ -948,14 +980,15 @@ Abilities.prototype.CanTargetPoint = function(ability, position)
 
 Abilities.prototype.IsTargetInRange = function(target, position)
 {
-	if (!target || target.Range === undefined)
+	const range = this.GetTargetRange(target);
+	if (range === undefined)
 		return true;
 
 	const sourcePosition = this.GetEntityPosition(this.entity);
 	if (!sourcePosition || !position)
 		return false;
 
-	return sourcePosition.distanceTo(this.AsVector2D(position)) <= +target.Range;
+	return sourcePosition.distanceTo(this.AsVector2D(position)) <= range;
 };
 
 Abilities.prototype.GetEffectOriginContext = function(effect, targetContext)

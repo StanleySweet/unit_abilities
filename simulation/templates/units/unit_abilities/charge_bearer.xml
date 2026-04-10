@@ -5,11 +5,11 @@
       <Action>point-target</Action>
       <Icon>abilities/ground_charge.png</Icon>
       <Cooldown>12000</Cooldown>
-      <Delay>2200</Delay>
+      <EffectDelay>2200</EffectDelay>
       <Tooltip>Choose a ground position, plant an explosive charge, then detonate it after a short fuse.</Tooltip>
       <Target>
         <Type>Point</Type>
-        <Range>24</Range>
+        <MaxRange>24</MaxRange>
         <Cursor>action-attack</Cursor>
         <PreviewTemplate>special/unit_abilities/charge_marker</PreviewTemplate>
       </Target>

@@ -18,7 +18,7 @@
       <Tooltip>Select an enemy unit and fire a lethal precise damage ability at that target.</Tooltip>
       <Target>
         <Type>Entity</Type>
-        <Range>32</Range>
+        <MaxRange>32</MaxRange>
         <Cursor>action-attack</Cursor>
         <TargetPlayers datatype="tokens">Gaia Enemy</TargetPlayers>
         <Classes datatype="tokens">Unit Organic</Classes>

@@ -15,12 +15,12 @@
       <Action>unit-target</Action>
       <Icon>abilities/conversion.png</Icon>
       <Cooldown>18000</Cooldown>
-      <Delay>4500</Delay>
+      <EffectDelay>4500</EffectDelay>
       <CancelOnOrderChange>true</CancelOnOrderChange>
       <Tooltip>Select an enemy organic unit and convert it if the caster keeps channeling.</Tooltip>
       <Target>
         <Type>Entity</Type>
-        <Range>22</Range>
+        <MaxRange>22</MaxRange>
         <Cursor>action-attack</Cursor>
         <TargetPlayers datatype="tokens">Gaia Enemy</TargetPlayers>
         <Classes datatype="tokens">Unit Organic</Classes>

@@ -771,7 +771,7 @@ const targetedTemplate = {
 		"Cooldown": "3000",
 		"Target": {
 			"Type": "Point",
-			"Range": "20",
+			"MaxRange": "20",
 			"Cursor": "action-attack"
 		},
 		"Particles": {
@@ -801,7 +801,7 @@ const targetedTemplate = {
 		"Cooldown": "2000",
 		"Target": {
 			"Type": "Entity",
-			"Range": "20",
+			"MaxRange": "20",
 			"TargetPlayers": {
 				"_string": "Gaia Enemy"
 			},
@@ -934,7 +934,7 @@ const restrictedTemplate = {
 		"Cooldown": "18000",
 		"Target": {
 			"Type": "Entity",
-			"Range": "22",
+			"MaxRange": "22",
 			"TargetPlayers": {
 				"_string": "Gaia Enemy"
 			},
@@ -995,11 +995,11 @@ const delayedTemplate = {
 		"Action": "point-target",
 		"Icon": "technologies/fire_arrows.png",
 		"Cooldown": "4000",
-		"Delay": "600",
+		"EffectDelay": "600",
 		"CancelOnOrderChange": "true",
 		"Target": {
 			"Type": "Point",
-			"Range": "20"
+			"MaxRange": "20"
 		},
 		"Particles": {
 			"Template": "special/effects/hero_ability_aura",
@@ -1061,11 +1061,11 @@ const channelTemplate = {
 		"Action": "unit-target",
 		"Icon": "technologies/fire_arrows.png",
 		"Cooldown": "4000",
-		"Delay": "500",
+		"EffectDelay": "500",
 		"CancelOnOrderChange": "true",
 		"Target": {
 			"Type": "Entity",
-			"Range": "20",
+			"MaxRange": "20",
 			"TargetPlayers": {
 				"_string": "Enemy"
 			},
