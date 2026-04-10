@@ -247,14 +247,7 @@ Abilities.prototype.Schema =
 									"<text/>" +
 								"</element>" +
 							"</optional>" +
-							"<element name='Damage' a:help='Direct damage applied to every affected target.'>" +
-								"<oneOrMore>" +
-									"<element a:help='One or more elements describing damage types'>" +
-										"<anyName/>" +
-										"<ref name='nonNegativeDecimal' />" +
-									"</element>" +
-								"</oneOrMore>" +
-							"</element>" +
+							AttackHelper.BuildAttackEffectsSchema() +
 						"</interleave>" +
 					"</element>" +
 				"</optional>" +
@@ -269,14 +262,7 @@ Abilities.prototype.Schema =
 									"</choice>" +
 								"</element>" +
 							"</optional>" +
-							"<element name='Damage' a:help='Direct damage applied to the selected entity.'>" +
-								"<oneOrMore>" +
-									"<element a:help='One or more elements describing damage types'>" +
-										"<anyName/>" +
-										"<ref name='nonNegativeDecimal' />" +
-									"</element>" +
-								"</oneOrMore>" +
-							"</element>" +
+							AttackHelper.BuildAttackEffectsSchema() +
 						"</interleave>" +
 					"</element>" +
 				"</optional>" +
@@ -1217,7 +1203,7 @@ Abilities.prototype.GetTargetPlayers = function(targetPlayerSpec, defaultRelatio
 
 Abilities.prototype.ApplyAreaAttack = function(name, ability, targetContext)
 {
-	if (!ability.AreaAttack || !ability.AreaAttack.Damage)
+	if (!this.HasAttackEffects(ability.AreaAttack))
 		return;
 
 	const players = this.GetTargetPlayers(ability.AreaAttack.TargetPlayers, "Enemy");
@@ -1231,7 +1217,7 @@ Abilities.prototype.ApplyAreaAttack = function(name, ability, targetContext)
 
 	const cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
 	const owner = cmpOwnership ? cmpOwnership.GetOwner() : INVALID_PLAYER;
-	const attackData = this.BuildAttackData(ability.AreaAttack.Damage);
+	const attackData = this.GetAttackEffectsData(name, "AreaAttack", ability.AreaAttack);
 
 	for (const target of targets)
 		AttackHelper.HandleAttackEffects(target, {
@@ -1244,7 +1230,7 @@ Abilities.prototype.ApplyAreaAttack = function(name, ability, targetContext)
 
 Abilities.prototype.ApplyDirectDamage = function(name, ability, targetContext)
 {
-	if (!ability.DirectDamage || !ability.DirectDamage.Damage)
+	if (!this.HasAttackEffects(ability.DirectDamage))
 		return;
 
 	const origin = this.GetEffectOriginContext(ability.DirectDamage, targetContext);
@@ -1257,7 +1243,7 @@ Abilities.prototype.ApplyDirectDamage = function(name, ability, targetContext)
 
 	const cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
 	const owner = cmpOwnership ? cmpOwnership.GetOwner() : INVALID_PLAYER;
-	const attackData = this.BuildAttackData(ability.DirectDamage.Damage);
+	const attackData = this.GetAttackEffectsData(name, "DirectDamage", ability.DirectDamage);
 
 	if (ability.Projectile && this.ApplyProjectileDirectDamage(name, ability, origin.entity, attackData, owner))
 		return;
@@ -1343,6 +1329,16 @@ Abilities.prototype.ApplyProjectileDirectDamage = function(name, ability, target
 	return true;
 };
 
+Abilities.prototype.HasAttackEffects = function(template)
+{
+	return !!(template && (template.Damage || template.Capture !== undefined || template.ApplyStatus || template.Bonuses));
+};
+
+Abilities.prototype.GetAttackEffectsData = function(name, effectType, template)
+{
+	return AttackHelper.GetAttackEffectsData("Abilities/" + name + "/" + effectType, template, this.entity);
+};
+
 Abilities.prototype.ApplyOwnershipChange = function(ability, targetContext)
 {
 	if (!ability.OwnershipChange)
@@ -1358,17 +1354,6 @@ Abilities.prototype.ApplyOwnershipChange = function(ability, targetContext)
 		return;
 
 	cmpTargetOwnership.SetOwner(cmpCasterOwnership.GetOwner());
-};
-
-Abilities.prototype.BuildAttackData = function(damageTemplate)
-{
-	const attackData = {
-		"Damage": {}
-	};
-	for (const type in damageTemplate)
-		attackData.Damage[type] = +damageTemplate[type];
-
-	return attackData;
 };
 
 Abilities.prototype.DestroyLocalEntity = function(entity)

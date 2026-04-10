@@ -2,6 +2,30 @@ Engine.LoadHelperScript("Player.js");
 Engine.LoadHelperScript("Sound.js");
 const attackCalls = [];
 Engine.RegisterGlobal("AttackHelper", {
+	"BuildAttackEffectsSchema": () =>
+		"<optional>" +
+			"<element name='Damage'><oneOrMore><element><anyName/><ref name='nonNegativeDecimal' /></element></oneOrMore></element>" +
+		"</optional>" +
+		"<optional><element name='Capture'><ref name='nonNegativeDecimal' /></element></optional>" +
+		"<optional><element name='ApplyStatus'><text/></element></optional>" +
+		"<optional><element name='Bonuses'><text/></element></optional>",
+	"GetAttackEffectsData": (valueModifRoot, template, entity) =>
+	{
+		const result = {};
+		if (template.Damage)
+		{
+			result.Damage = {};
+			for (const damageType in template.Damage)
+				result.Damage[damageType] = +template.Damage[damageType];
+		}
+		if (template.Capture !== undefined)
+			result.Capture = +template.Capture;
+		if (template.ApplyStatus)
+			result.ApplyStatus = template.ApplyStatus;
+		if (template.Bonuses)
+			result.Bonuses = template.Bonuses;
+		return result;
+	},
 	"HandleAttackEffects": (target, data) => attackCalls.push({ "target": target, "data": data })
 });
 Engine.LoadComponentScript("interfaces/Abilities.js");
@@ -761,6 +785,11 @@ const targetedTemplate = {
 				"Origin": "target",
 				"Damage": {
 					"Pierce": "11"
+				},
+				"ApplyStatus": {
+					"Marked": {
+						"Duration": "1500"
+					}
 				}
 			},
 			"Projectile": {
@@ -812,6 +841,7 @@ TS_ASSERT_EQUALS(attackCalls.length, targetedAttackCount + 1);
 TS_ASSERT_EQUALS(attackCalls[targetedAttackCount].target, secondEntity);
 TS_ASSERT_EQUALS(attackCalls[targetedAttackCount].data.type, "MarkTarget.DirectDamage");
 TS_ASSERT_EQUALS(attackCalls[targetedAttackCount].data.attackData.Damage.Pierce, 11);
+TS_ASSERT_EQUALS(attackCalls[targetedAttackCount].data.attackData.ApplyStatus.Marked.Duration, "1500");
 TS_ASSERT_EQUALS(convertedOwner, owner);
 cmpTimer.OnUpdate({ "turnLength": 2.0 });
 const gaiaAttackCount = attackCalls.length;
