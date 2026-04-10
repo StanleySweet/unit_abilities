@@ -37,6 +37,7 @@
   <Sound>
     <SoundGroups/>
   </Sound>
+  <StatusEffectsReceiver disable=""/>
   <UnitAI>
     <DefaultStance>passive</DefaultStance>
     <CanGuard>false</CanGuard>
