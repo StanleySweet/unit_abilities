@@ -166,6 +166,11 @@ Abilities.prototype.Schema =
 								"</element>" +
 							"</optional>" +
 							"<optional>" +
+								"<element name='ActiveLimit' a:help='Optional cap on how many spawned entities of the same template this caster may have active at once. Additional placements are blocked until one of the active entities is gone.'>" +
+									"<ref name='nonNegativeDecimal'/>" +
+								"</element>" +
+							"</optional>" +
+							"<optional>" +
 								"<element name='Timing' a:help='Whether the entity should spawn immediately on click or after the ability delay elapses.'>" +
 									"<choice>" +
 										"<value>immediate</value>" +
@@ -315,6 +320,20 @@ Abilities.prototype.Schema =
 						"<interleave>" +
 							"<optional>" +
 								"<element name='Origin' a:help='Whether the ownership change should apply to the caster or the chosen target.'>" +
+									"<choice>" +
+										"<value>caster</value>" +
+										"<value>target</value>" +
+									"</choice>" +
+								"</element>" +
+							"</optional>" +
+						"</interleave>" +
+					"</element>" +
+				"</optional>" +
+				"<optional>" +
+					"<element name='DestroyEntity' a:help='Optional entity destruction applied to the caster or chosen target when the ability resolves.'>" +
+						"<interleave>" +
+							"<optional>" +
+								"<element name='Origin' a:help='Whether the destruction should apply to the caster or the chosen target.'>" +
 									"<choice>" +
 										"<value>caster</value>" +
 										"<value>target</value>" +
@@ -484,6 +503,9 @@ Abilities.prototype.TriggerAbility = function(name, data)
 	const targetContext = this.ResolveTargetContext(ability, data);
 	if (!targetContext)
 		return this.TryQueueAbilityInRange(name, ability, data);
+
+	if (!this.CanSpawnEntity(ability))
+		return false;
 
 	this.lastTriggered[name] = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).GetTime();
 
@@ -716,6 +738,7 @@ Abilities.prototype.ExecuteAbilityEffects = function(name, ability, targetContex
 	this.ApplyBuff(name, ability, targetContext);
 	this.ApplyDirectDamage(name, ability, targetContext);
 	this.ApplyOwnershipChange(ability, targetContext);
+	this.ApplyDestroyEntityEffect(ability, targetContext);
 	this.ApplyAreaAttack(name, ability, targetContext);
 
 	if (ability.Sound)
@@ -1200,15 +1223,12 @@ Abilities.prototype.SpawnEntity = function(ability, targetContext)
 	const cmpOwnership = Engine.QueryInterface(entity, IID_Ownership);
 	if (cmpOwnership)
 	{
-		let owner = 0;
-		if (ability.SpawnEntity.Owner != "gaia")
-		{
-			const cmpCasterOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
-			if (cmpCasterOwnership)
-				owner = cmpCasterOwnership.GetOwner();
-		}
-		cmpOwnership.SetOwner(owner);
+		cmpOwnership.SetOwner(this.GetSpawnEntityOwner(ability.SpawnEntity));
 	}
+
+	const cmpSpawnedEntity = Engine.QueryInterface(entity, IID_SpawnedEntity);
+	if (cmpSpawnedEntity)
+		cmpSpawnedEntity.SetSpawner(this.entity);
 
 	if (!ability.SpawnEntity.Duration)
 		return;
@@ -1219,6 +1239,77 @@ Abilities.prototype.SpawnEntity = function(ability, targetContext)
 		"DestroyEntity",
 		+ability.SpawnEntity.Duration,
 		entity);
+};
+
+Abilities.prototype.CanSpawnEntity = function(ability)
+{
+	if (!ability || !ability.SpawnEntity || !(+ability.SpawnEntity.ActiveLimit > 0))
+		return true;
+
+	return this.CountActiveSpawnedEntities(ability.SpawnEntity) < +ability.SpawnEntity.ActiveLimit;
+};
+
+Abilities.prototype.GetSpawnEntityOwner = function(spawnTemplate)
+{
+	if (!spawnTemplate || spawnTemplate.Owner == "gaia")
+		return 0;
+
+	const cmpCasterOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
+	return cmpCasterOwnership ? cmpCasterOwnership.GetOwner() : 0;
+};
+
+Abilities.prototype.CountActiveSpawnedEntities = function(spawnTemplate)
+{
+	if (!spawnTemplate || !spawnTemplate.Template)
+		return 0;
+
+	const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
+	if (!cmpRangeManager || !cmpRangeManager.GetEntitiesByPlayer)
+		return 0;
+
+	const owner = this.GetSpawnEntityOwner(spawnTemplate);
+	if (owner === undefined || owner == INVALID_PLAYER)
+		return 0;
+
+	return cmpRangeManager.GetEntitiesByPlayer(owner)
+		.filter(entity => entity != INVALID_ENTITY && entity != this.entity &&
+			this.EntityMatchesTemplate(entity, spawnTemplate.Template) &&
+			this.EntityWasSpawnedBy(entity, this.entity))
+		.length;
+};
+
+Abilities.prototype.EntityMatchesTemplate = function(entity, templateName)
+{
+	if (entity === undefined || !templateName)
+		return false;
+
+	return this.GetEntityTemplateName(entity) == templateName;
+};
+
+Abilities.prototype.GetEntityTemplateName = function(entity)
+{
+	if (typeof IID_TemplateManager != "undefined")
+	{
+		const cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
+		if (cmpTemplateManager && cmpTemplateManager.GetCurrentTemplateName)
+		{
+			const templateName = cmpTemplateManager.GetCurrentTemplateName(entity);
+			if (templateName)
+				return templateName;
+		}
+	}
+
+	const cmpIdentity = Engine.QueryInterface(entity, IID_Identity);
+	if (cmpIdentity && cmpIdentity.GetSelectionGroupName)
+		return cmpIdentity.GetSelectionGroupName();
+
+	return undefined;
+};
+
+Abilities.prototype.EntityWasSpawnedBy = function(entity, spawner)
+{
+	const cmpSpawnedEntity = Engine.QueryInterface(entity, IID_SpawnedEntity);
+	return !!cmpSpawnedEntity && cmpSpawnedEntity.GetSpawner && cmpSpawnedEntity.GetSpawner() == spawner;
 };
 
 Abilities.prototype.GetTargetsAroundContext = function(context, radius, players, iid)
@@ -1483,6 +1574,18 @@ Abilities.prototype.ApplyOwnershipChange = function(ability, targetContext)
 	cmpTargetOwnership.SetOwner(cmpCasterOwnership.GetOwner());
 };
 
+Abilities.prototype.ApplyDestroyEntityEffect = function(ability, targetContext)
+{
+	if (!ability.DestroyEntity)
+		return;
+
+	const origin = this.GetEffectOriginContext(ability.DestroyEntity, targetContext);
+	if (!origin || origin.entity === undefined)
+		return;
+
+	this.DestroyEntity(origin.entity);
+};
+
 Abilities.prototype.DestroyLocalEntity = function(entity)
 {
 	Engine.DestroyEntity(entity);
@@ -1522,7 +1625,49 @@ Abilities.prototype.AutoTriggerAbility = function(name)
 	if (cmpPosition && !cmpPosition.IsInWorld())
 		return;
 
-	this.TriggerAbility(name);
+	const targetData = this.GetAutoTriggerData(ability);
+	if (ability.Target && !targetData)
+		return;
+
+	this.TriggerAbility(name, targetData);
+};
+
+Abilities.prototype.GetAutoTriggerData = function(ability)
+{
+	const targetType = this.GetNormalizedTargetType(ability.Target && ability.Target.Type);
+	if (targetType == "none")
+		return undefined;
+
+	if (targetType != "entity")
+		return undefined;
+
+	const target = this.GetFirstAutoTriggerTarget(ability);
+	if (target === undefined)
+		return undefined;
+
+	return { "target": target };
+};
+
+Abilities.prototype.GetFirstAutoTriggerTarget = function(ability)
+{
+	const players = this.GetTargetPlayers(this.GetTokenString(ability.Target && ability.Target.TargetPlayers), "Enemy");
+	if (!players.length)
+		return undefined;
+
+	const range = this.GetTargetRange(ability.Target);
+	if (range === undefined)
+		return undefined;
+
+	const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
+	if (!cmpRangeManager)
+		return undefined;
+
+	const candidates = cmpRangeManager.ExecuteQuery(this.entity, 0, range, players, IID_Identity, true);
+	for (const candidate of candidates)
+		if (this.GetEntityTargetError(ability, candidate, true) == "none")
+			return candidate;
+
+	return undefined;
 };
 
 Abilities.prototype.CancelAnimationResetTimer = function()

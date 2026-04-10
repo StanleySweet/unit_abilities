@@ -5,7 +5,7 @@
       <Action>point-target</Action>
       <Icon>abilities/snare_trap.png</Icon>
       <Cooldown>10000</Cooldown>
-      <Tooltip>Place a snare on the ground. Enemy units that step into it are slowed while it remains armed.</Tooltip>
+      <Tooltip>Place a snare on the ground. The trap stays armed until an enemy triggers it. Maximum 3 active traps per unit.</Tooltip>
       <Target>
         <Type>Point</Type>
         <Range>4</Range>
@@ -24,7 +24,7 @@
         <Template>special/unit_abilities/trap_marker</Template>
         <Origin>target</Origin>
         <Owner>caster</Owner>
-        <Duration>12000</Duration>
+        <ActiveLimit>3</ActiveLimit>
       </SpawnEntity>
       <Sound>attack</Sound>
     </SnareTrap>

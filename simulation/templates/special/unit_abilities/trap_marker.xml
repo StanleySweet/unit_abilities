@@ -1,6 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Entity parent="template_unit">
-  <Auras datatype="tokens">units/unit_abilities/trap_snare</Auras>
+  <Abilities>
+    <TriggerSnare>
+      <Action>passive</Action>
+      <Icon>abilities/snare_trap.png</Icon>
+      <Cooldown>1000</Cooldown>
+      <Target>
+        <Type>Entity</Type>
+        <Range>4</Range>
+        <TargetPlayers datatype="tokens">Enemy</TargetPlayers>
+        <Classes datatype="tokens">Unit</Classes>
+      </Target>
+      <DirectDamage>
+        <Origin>target</Origin>
+        <ApplyStatus>
+          <Snared>
+            <Duration>4000</Duration>
+            <Stackability>Replace</Stackability>
+            <Modifiers>
+              <SnareSpeed>
+                <Paths datatype="tokens">UnitMotion/WalkSpeed</Paths>
+                <Multiply>0.45</Multiply>
+              </SnareSpeed>
+            </Modifiers>
+          </Snared>
+        </ApplyStatus>
+      </DirectDamage>
+      <DestroyEntity>
+        <Origin>caster</Origin>
+      </DestroyEntity>
+      <AutoTrigger>
+        <Interval>200</Interval>
+      </AutoTrigger>
+    </TriggerSnare>
+  </Abilities>
   <Cost>
     <Population>0</Population>
     <BuildTime>0</BuildTime>
@@ -22,6 +55,7 @@
     <Civ>gaia</Civ>
     <GenericName>Trap Marker</GenericName>
     <Icon>abilities/snare_trap.png</Icon>
+    <SelectionGroupName>special/unit_abilities/trap_marker</SelectionGroupName>
     <Classes datatype="tokens">Unit Trap</Classes>
     <VisibleClasses datatype="tokens">Trap</VisibleClasses>
     <Undeletable>true</Undeletable>
@@ -38,6 +72,7 @@
   <Sound>
     <SoundGroups/>
   </Sound>
+  <SpawnedEntity/>
   <StatusEffectsReceiver disable=""/>
   <UnitAI>
     <DefaultStance>passive</DefaultStance>

@@ -34,6 +34,7 @@ Engine.LoadComponentScript("interfaces/Health.js");
 Engine.LoadComponentScript("interfaces/Player.js");
 Engine.LoadComponentScript("interfaces/PlayerManager.js");
 Engine.LoadComponentScript("interfaces/DelayedDamage.js");
+Engine.LoadComponentScript("interfaces/SpawnedEntity.js");
 Engine.LoadComponentScript("interfaces/StatusEffectsReceiver.js");
 Engine.LoadComponentScript("interfaces/Timer.js");
 Engine.LoadComponentScript("interfaces/UnitAI.js");
@@ -91,6 +92,7 @@ let facedTarget = undefined;
 let addedOrders = [];
 let queuedTargetPosition2D = new Vector2D(90, 90);
 let queuedTargetPosition3D = new Vector3D(90, 0, 90);
+let ownedEntities = [];
 
 AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
 	"GetAllPlayers": () => [0, owner, ally, enemy],
@@ -228,6 +230,7 @@ AddMock(localEffectEntity, IID_Ownership, {
 });
 
 AddMock(SYSTEM_ENTITY, IID_RangeManager, {
+	"GetEntitiesByPlayer": player => player == owner ? ownedEntities : [],
 	"ExecuteQuery": (entity, min, max, players, iid, accountForSize) =>
 	{
 		queryPlayers = players;
@@ -603,6 +606,7 @@ DeleteMock(SYSTEM_ENTITY, IID_RangeManager);
 cmpAbilitiesWithoutVisual.ApplyBuff("NoFx", { "Buff": { "Range": "10", "Duration": "1000", "Modifiers": {} } });
 cmpAbilitiesWithoutVisual.ApplyAreaAttack("NoFx", { "AreaAttack": { "Range": "10", "Damage": { "Hack": "2" } } });
 AddMock(SYSTEM_ENTITY, IID_RangeManager, {
+	"GetEntitiesByPlayer": player => player == owner ? ownedEntities : [],
 	"ExecuteQuery": () => []
 });
 cmpAbilitiesWithoutVisual.ApplyBuff("NoFx", { "Buff": { "Range": "10", "Duration": "1000", "Modifiers": {} } });
@@ -610,6 +614,7 @@ cmpAbilitiesWithoutVisual.ApplyAreaAttack("NoFx", { "AreaAttack": { "Range": "10
 cmpAbilitiesWithoutVisual.ApplyBuff("NoFx", { });
 cmpAbilitiesWithoutVisual.ApplyAreaAttack("NoFx", { });
 AddMock(SYSTEM_ENTITY, IID_RangeManager, {
+	"GetEntitiesByPlayer": player => player == owner ? ownedEntities : [],
 	"ExecuteQuery": (entity, min, max, players, iid, accountForSize) =>
 	{
 		queryPlayers = players;
@@ -642,6 +647,10 @@ AddMock(fourthEntity, IID_UnitAI, {
 	"GetCurrentState": () => autoState,
 	"GetOrders": () => autoOrders,
 	"FaceTowardsTarget": () => {}
+});
+
+AddMock(fourthEntity, IID_Ownership, {
+	"GetOwner": () => owner
 });
 
 AddMock(fourthEntity, IID_Position, {
@@ -720,6 +729,46 @@ autoPlayedSound = undefined;
 autoState = "INDIVIDUAL.COMBAT.APPROACHING";
 autoOrders = [];
 cmpAutoAbilities.OnDestroy();
+
+destroyedEntity = undefined;
+const autoTargetTemplate = {
+	"AutoSnare": {
+		"Action": "passive",
+		"Icon": "abilities/snare_trap.png",
+		"Cooldown": "1000",
+		"Target": {
+			"Type": "Entity",
+			"Range": "8",
+			"TargetPlayers": {
+				"_string": "Enemy"
+			},
+			"Classes": {
+				"_string": "Unit"
+			}
+		},
+		"DirectDamage": {
+			"Origin": "target",
+			"ApplyStatus": {
+				"Snared": {
+					"Duration": "4000"
+				}
+			}
+		},
+		"DestroyEntity": {
+			"Origin": "caster"
+		},
+		"AutoTrigger": {
+			"Interval": "1000"
+		}
+	}
+};
+const cmpAutoTargetAbilities = ConstructComponent(fourthEntity, "Abilities", autoTargetTemplate);
+cmpAutoTargetAbilities.AutoTriggerAbility("AutoSnare");
+TS_ASSERT_EQUALS(attackCalls[attackCalls.length - 1].target, secondEntity);
+TS_ASSERT_EQUALS(attackCalls[attackCalls.length - 1].data.type, "AutoSnare.DirectDamage");
+TS_ASSERT_EQUALS(destroyedEntity, fourthEntity);
+cmpAutoTargetAbilities.OnDestroy();
+
 const fifthTemplate = {
 	"OrderedPulse": {
 		"Action": "passive",
@@ -788,6 +837,7 @@ const targetedTemplate = {
 			"Template": "units/test_trap",
 			"Origin": "target",
 			"Owner": "caster",
+			"ActiveLimit": "3",
 			"Timing": "immediate"
 		},
 		"AreaAttack": {
@@ -864,6 +914,60 @@ TS_ASSERT_EQUALS(queryType, "point");
 TS_ASSERT_UNEVAL_EQUALS(aroundQueryPosition, [18, 20]);
 casterPosition2D = new Vector2D(11, 13);
 casterPosition3D = new Vector3D(11, 0, 13);
+
+ownedEntities = [201, 202, 203, 204];
+AddMock(201, IID_Identity, {
+	"GetSelectionGroupName": () => "units/test_trap"
+});
+AddMock(202, IID_Identity, {
+	"GetSelectionGroupName": () => "units/test_trap"
+});
+AddMock(203, IID_Identity, {
+	"GetSelectionGroupName": () => "units/test_trap"
+});
+AddMock(204, IID_Identity, {
+	"GetSelectionGroupName": () => "units/test_trap"
+});
+AddMock(201, IID_SpawnedEntity, {
+	"GetSpawner": () => firstEntity
+});
+AddMock(202, IID_SpawnedEntity, {
+	"GetSpawner": () => firstEntity
+});
+AddMock(203, IID_SpawnedEntity, {
+	"GetSpawner": () => firstEntity
+});
+AddMock(204, IID_SpawnedEntity, {
+	"GetSpawner": () => secondEntity
+});
+TS_ASSERT_EQUALS(cmpTargetedAbilities.CountActiveSpawnedEntities(targetedTemplate.DeployTrap.SpawnEntity), 3);
+destroyedEntity = undefined;
+addedEntityTemplate = undefined;
+casterPosition2D = new Vector2D(17, 19);
+casterPosition3D = new Vector3D(17, 0, 19);
+cmpTimer.OnUpdate({ "turnLength": 3.0 });
+TS_ASSERT(!cmpTargetedAbilities.TriggerAbility("DeployTrap", {
+	"position": { "x": 18, "z": 20 }
+}));
+TS_ASSERT_EQUALS(addedEntityTemplate, undefined);
+TS_ASSERT_EQUALS(destroyedEntity, undefined);
+ownedEntities = [];
+DeleteMock(201, IID_Identity);
+DeleteMock(202, IID_Identity);
+DeleteMock(203, IID_Identity);
+DeleteMock(204, IID_Identity);
+DeleteMock(201, IID_SpawnedEntity);
+DeleteMock(202, IID_SpawnedEntity);
+DeleteMock(203, IID_SpawnedEntity);
+DeleteMock(204, IID_SpawnedEntity);
+addedEntityTemplate = undefined;
+TS_ASSERT(cmpTargetedAbilities.TriggerAbility("DeployTrap", {
+	"position": { "x": 18, "z": 20 }
+}));
+TS_ASSERT_EQUALS(addedEntityTemplate, "units/test_trap");
+casterPosition2D = new Vector2D(11, 13);
+casterPosition3D = new Vector3D(11, 0, 13);
+
 const targetedAttackCount = attackCalls.length;
 TS_ASSERT(cmpTargetedAbilities.TriggerAbility("MarkTarget", {
 	"target": secondEntity
