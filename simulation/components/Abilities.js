@@ -522,6 +522,14 @@ Abilities.prototype.TryQueueAbilityInRange = function(name, ability, data)
 	return false;
 };
 
+/**
+ * Queue a normal walk order toward an entity target until the caster is in range.
+ *
+ * @param {UnitAI|null} cmpUnitAI
+ * @param {number} target
+ * @param {number|undefined} range
+ * @returns {boolean}
+ */
 Abilities.prototype.IssueMoveToEntityRange = function(cmpUnitAI, target, range)
 {
 	if (!cmpUnitAI)
@@ -536,6 +544,15 @@ Abilities.prototype.IssueMoveToEntityRange = function(cmpUnitAI, target, range)
 	return true;
 };
 
+/**
+ * Queue a normal walk order toward a point target until the caster is in range.
+ *
+ * @param {UnitAI|null} cmpUnitAI
+ * @param {number} x
+ * @param {number} z
+ * @param {number|undefined} range
+ * @returns {boolean}
+ */
 Abilities.prototype.IssueMoveToPointRange = function(cmpUnitAI, x, z, range)
 {
 	if (!cmpUnitAI)
@@ -544,7 +561,6 @@ Abilities.prototype.IssueMoveToPointRange = function(cmpUnitAI, x, z, range)
 	cmpUnitAI.WalkToPointRange(x, z, 0, range, false, false);
 	return true;
 };
-
 Abilities.prototype.QueueAbilityRetry = function(name, data)
 {
 	const token = String(this.nextQueuedAbilityToken++);
@@ -695,6 +711,14 @@ Abilities.prototype.ExecuteAbilityEffects = function(name, ability, targetContex
 		PlaySound(ability.Sound, this.entity);
 };
 
+/**
+ * Rotate the caster toward the current target context before resolving effects.
+ *
+ * This prefers UnitAI-facing helpers, then UnitMotion, and finally falls back to
+ * turning the Position component directly when the entity is in the world.
+ *
+ * @param {Object|undefined} targetContext
+ */
 Abilities.prototype.FaceTowardsContext = function(targetContext)
 {
 	if (!targetContext || !targetContext.position)
@@ -800,6 +824,12 @@ Abilities.prototype.AsVector2D = function(position)
 	return position;
 };
 
+/**
+ * Read the 2D world position for an in-world entity.
+ *
+ * @param {number} entity
+ * @returns {Vector2D|undefined}
+ */
 Abilities.prototype.GetEntityPosition = function(entity)
 {
 	const cmpPosition = Engine.QueryInterface(entity, IID_Position);
@@ -809,6 +839,12 @@ Abilities.prototype.GetEntityPosition = function(entity)
 	return cmpPosition.GetPosition2D();
 };
 
+/**
+ * Read the 3D world position for an in-world entity.
+ *
+ * @param {number} entity
+ * @returns {Vector3D|undefined}
+ */
 Abilities.prototype.GetEntityPosition3D = function(entity)
 {
 	const cmpPosition = Engine.QueryInterface(entity, IID_Position);
@@ -862,6 +898,13 @@ Abilities.prototype.CanTargetEntity = function(ability, target)
 	return this.GetEntityTargetError(ability, target, false) == "none";
 };
 
+/**
+ * Return the full identity class list for a target, or an empty list when the
+ * Identity component is missing.
+ *
+ * @param {Identity|null} cmpIdentity
+ * @returns {string[]}
+ */
 Abilities.prototype.GetIdentityClasses = function(cmpIdentity)
 {
 	if (!cmpIdentity)
@@ -870,6 +913,13 @@ Abilities.prototype.GetIdentityClasses = function(cmpIdentity)
 	return cmpIdentity.GetClassesList();
 };
 
+/**
+ * Check whether the target matches every required identity class.
+ *
+ * @param {Identity|null} cmpIdentity
+ * @param {string[]} requiredClasses
+ * @returns {boolean}
+ */
 Abilities.prototype.HasAllIdentityClasses = function(cmpIdentity, requiredClasses)
 {
 	if (!requiredClasses.length)
@@ -881,6 +931,13 @@ Abilities.prototype.HasAllIdentityClasses = function(cmpIdentity, requiredClasse
 	return requiredClasses.every(className => cmpIdentity.HasClass(className));
 };
 
+/**
+ * Check whether the target matches any restricted identity class.
+ *
+ * @param {Identity|null} cmpIdentity
+ * @param {string[]} restrictedClasses
+ * @returns {boolean}
+ */
 Abilities.prototype.HasAnyIdentityClass = function(cmpIdentity, restrictedClasses)
 {
 	if (!restrictedClasses.length || !cmpIdentity)
@@ -956,6 +1013,14 @@ Abilities.prototype.GetEffectOriginContext = function(effect, targetContext)
 	return this.GetContextForEntity(this.entity);
 };
 
+/**
+ * Infer whether the caster should be treated as already fighting.
+ *
+ * The ability system uses both the current UnitAI state and the active order so
+ * passive triggers can behave consistently during approach and attack phases.
+ *
+ * @returns {boolean}
+ */
 Abilities.prototype.IsInBattle = function()
 {
 	const cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
@@ -979,6 +1044,12 @@ Abilities.prototype.IsInBattle = function()
 		activeOrder.type == "Patrol";
 };
 
+/**
+ * Check whether an auto-trigger is allowed to fire in the caster's current state.
+ *
+ * @param {Object|undefined} autoTrigger
+ * @returns {boolean}
+ */
 Abilities.prototype.MatchesAutoTriggerState = function(autoTrigger)
 {
 	if (!autoTrigger || !autoTrigger.State)
