@@ -463,8 +463,7 @@ Abilities.prototype.TryQueueAbilityInRange = function(name, ability, data)
 	if (targetType == "entity" && data && data.target)
 	{
 		if (this.GetEntityTargetError(ability, data.target, false) != "range" ||
-			typeof cmpUnitAI.MoveToTargetRangeExplicit != "function" ||
-			!cmpUnitAI.MoveToTargetRangeExplicit(data.target, 0, +ability.Target.Range))
+			!this.IssueMoveToEntityRange(cmpUnitAI, data.target, +ability.Target.Range))
 			return false;
 
 		this.QueueAbilityRetry(name, {
@@ -475,15 +474,8 @@ Abilities.prototype.TryQueueAbilityInRange = function(name, ability, data)
 
 	if (targetType == "point" && data && data.position)
 	{
-		const moveToPoint = typeof cmpUnitAI.WalkToPointRange == "function" ?
-			(x, z, min, max) => cmpUnitAI.WalkToPointRange(x, z, min, max, false, false) :
-			typeof cmpUnitAI.MoveToPointRange == "function" ?
-				(x, z, min, max) => cmpUnitAI.MoveToPointRange(x, z, min, max) :
-				undefined;
-
 		if (this.CanTargetPoint(ability, data.position) ||
-			!moveToPoint ||
-			!moveToPoint(data.position.x, data.position.z, 0, +ability.Target.Range))
+			!this.IssueMoveToPointRange(cmpUnitAI, data.position.x, data.position.z, +ability.Target.Range))
 			return false;
 
 		this.QueueAbilityRetry(name, {
@@ -494,6 +486,57 @@ Abilities.prototype.TryQueueAbilityInRange = function(name, ability, data)
 		});
 		return true;
 	}
+
+	return false;
+};
+
+Abilities.prototype.IssueMoveToEntityRange = function(cmpUnitAI, target, range)
+{
+	if (!cmpUnitAI)
+		return false;
+
+	if (typeof cmpUnitAI.AddOrder == "function")
+	{
+		cmpUnitAI.AddOrder("WalkToTarget", {
+			"target": target,
+			"min": 0,
+			"max": range,
+			"force": true
+		}, false, false);
+		return true;
+	}
+
+	if (typeof cmpUnitAI.MoveToTargetRangeExplicit == "function")
+		return cmpUnitAI.MoveToTargetRangeExplicit(target, 0, range);
+
+	return false;
+};
+
+Abilities.prototype.IssueMoveToPointRange = function(cmpUnitAI, x, z, range)
+{
+	if (!cmpUnitAI)
+		return false;
+
+	if (typeof cmpUnitAI.WalkToPointRange == "function")
+	{
+		cmpUnitAI.WalkToPointRange(x, z, 0, range, false, false);
+		return true;
+	}
+
+	if (typeof cmpUnitAI.AddOrder == "function")
+	{
+		cmpUnitAI.AddOrder("Walk", {
+			"x": x,
+			"z": z,
+			"min": 0,
+			"max": range,
+			"force": true
+		}, false, false);
+		return true;
+	}
+
+	if (typeof cmpUnitAI.MoveToPointRange == "function")
+		return cmpUnitAI.MoveToPointRange(x, z, 0, range);
 
 	return false;
 };

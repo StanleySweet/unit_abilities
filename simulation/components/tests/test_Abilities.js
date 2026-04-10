@@ -47,6 +47,7 @@ const fourthEntity = 104;
 const fifthEntity = 105;
 const gaiaTargetEntity = 106;
 const restrictedTargetEntity = 107;
+const queuedTargetEntity = 108;
 const localEffectEntity = 301;
 const playerEntity = 1007;
 const allyPlayerEntity = 1008;
@@ -87,6 +88,9 @@ let casterPosition3D = new Vector3D(11, 0, 13);
 let movedToPointRange = undefined;
 let walkedToPointRange = undefined;
 let facedTarget = undefined;
+let addedOrders = [];
+let queuedTargetPosition2D = new Vector2D(90, 90);
+let queuedTargetPosition3D = new Vector3D(90, 0, 90);
 
 AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
 	"GetAllPlayers": () => [0, owner, ally, enemy],
@@ -195,6 +199,10 @@ AddMock(firstEntity, IID_UnitAI, {
 	},
 	"Stop": () => activeOrders = [{ "type": "Stop" }],
 	"GetOrders": () => activeOrders,
+	"AddOrder": (type, data, queued, pushFront) =>
+	{
+		addedOrders.push({ "type": type, "data": data, "queued": queued, "pushFront": pushFront });
+	},
 	"WalkToPointRange": (x, z, min, max) =>
 	{
 		walkedToPointRange = { "x": x, "z": z, "min": min, "max": max };
@@ -330,6 +338,27 @@ AddMock(restrictedTargetEntity, IID_Ownership, {
 
 AddMock(restrictedTargetEntity, IID_Identity, {
 	"HasClass": className => ["Unit", "Organic", "Hero", "Titan"].indexOf(className) != -1
+});
+
+AddMock(queuedTargetEntity, IID_Health, {
+	"TakeDamage": () => ({ "healthChange": -1 })
+});
+
+AddMock(queuedTargetEntity, IID_Position, {
+	"IsInWorld": () => true,
+	"GetPosition": () => ({ "x": queuedTargetPosition3D.x, "y": queuedTargetPosition3D.y, "z": queuedTargetPosition3D.z }),
+	"GetPosition2D": () => new Vector2D(queuedTargetPosition2D.x, queuedTargetPosition2D.y),
+	"GetPreviousPosition": () => ({ "x": queuedTargetPosition3D.x, "y": queuedTargetPosition3D.y, "z": queuedTargetPosition3D.z }),
+	"GetHeightAt": () => 0
+});
+
+AddMock(queuedTargetEntity, IID_Ownership, {
+	"GetOwner": () => enemy,
+	"SetOwner": newOwner => convertedOwner = newOwner
+});
+
+AddMock(queuedTargetEntity, IID_Identity, {
+	"HasClass": className => ["Unit", "Organic"].indexOf(className) != -1
 });
 
 const firstTemplate = {
@@ -860,6 +889,7 @@ TS_ASSERT(!cmpTargetedAbilities.TriggerAbility("MarkTarget", {
 cmpTimer.OnUpdate({ "turnLength": 3.0 });
 movedToPointRange = undefined;
 walkedToPointRange = undefined;
+addedOrders = [];
 addedEntityTemplate = undefined;
 spawnedJumpedTo = undefined;
 TS_ASSERT(cmpTargetedAbilities.TriggerAbility("DeployTrap", {
@@ -877,6 +907,25 @@ TS_ASSERT_EQUALS(addedEntityTemplate, "units/test_trap");
 TS_ASSERT_UNEVAL_EQUALS(spawnedJumpedTo, [90, 90]);
 casterPosition2D = new Vector2D(11, 13);
 casterPosition3D = new Vector3D(11, 0, 13);
+
+addedOrders = [];
+const queuedAttackCount = attackCalls.length;
+TS_ASSERT(cmpTargetedAbilities.TriggerAbility("MarkTarget", {
+	"target": queuedTargetEntity
+}));
+TS_ASSERT_EQUALS(attackCalls.length, queuedAttackCount);
+TS_ASSERT_EQUALS(addedOrders.length, 1);
+TS_ASSERT_EQUALS(addedOrders[0].type, "WalkToTarget");
+TS_ASSERT_EQUALS(addedOrders[0].data.target, queuedTargetEntity);
+TS_ASSERT_EQUALS(addedOrders[0].data.max, 20);
+queuedTargetPosition2D = new Vector2D(16, 17);
+queuedTargetPosition3D = new Vector3D(16, 0, 17);
+cmpTimer.OnUpdate({ "turnLength": 1.0 });
+cmpTimer.OnUpdate({ "turnLength": 0.1 });
+TS_ASSERT_EQUALS(attackCalls.length, queuedAttackCount + 1);
+TS_ASSERT_EQUALS(attackCalls[queuedAttackCount].target, queuedTargetEntity);
+queuedTargetPosition2D = new Vector2D(90, 90);
+queuedTargetPosition3D = new Vector3D(90, 0, 90);
 
 const restrictedTemplate = {
 	"ConvertTarget": {
