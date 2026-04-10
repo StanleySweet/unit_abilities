@@ -527,21 +527,13 @@ Abilities.prototype.IssueMoveToEntityRange = function(cmpUnitAI, target, range)
 	if (!cmpUnitAI)
 		return false;
 
-	if (typeof cmpUnitAI.AddOrder == "function")
-	{
-		cmpUnitAI.AddOrder("WalkToTarget", {
-			"target": target,
-			"min": 0,
-			"max": range,
-			"force": true
-		}, false, false);
-		return true;
-	}
-
-	if (typeof cmpUnitAI.MoveToTargetRangeExplicit == "function")
-		return cmpUnitAI.MoveToTargetRangeExplicit(target, 0, range);
-
-	return false;
+	cmpUnitAI.AddOrder("WalkToTarget", {
+		"target": target,
+		"min": 0,
+		"max": range,
+		"force": true
+	}, false, false);
+	return true;
 };
 
 Abilities.prototype.IssueMoveToPointRange = function(cmpUnitAI, x, z, range)
@@ -549,28 +541,8 @@ Abilities.prototype.IssueMoveToPointRange = function(cmpUnitAI, x, z, range)
 	if (!cmpUnitAI)
 		return false;
 
-	if (typeof cmpUnitAI.WalkToPointRange == "function")
-	{
-		cmpUnitAI.WalkToPointRange(x, z, 0, range, false, false);
-		return true;
-	}
-
-	if (typeof cmpUnitAI.AddOrder == "function")
-	{
-		cmpUnitAI.AddOrder("Walk", {
-			"x": x,
-			"z": z,
-			"min": 0,
-			"max": range,
-			"force": true
-		}, false, false);
-		return true;
-	}
-
-	if (typeof cmpUnitAI.MoveToPointRange == "function")
-		return cmpUnitAI.MoveToPointRange(x, z, 0, range);
-
-	return false;
+	cmpUnitAI.WalkToPointRange(x, z, 0, range, false, false);
+	return true;
 };
 
 Abilities.prototype.QueueAbilityRetry = function(name, data)
@@ -647,7 +619,7 @@ Abilities.prototype.PrepareDelayedAbility = function(ability)
 		return;
 
 	const cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
-	if (cmpUnitAI && typeof cmpUnitAI.Stop == "function")
+	if (cmpUnitAI)
 		cmpUnitAI.Stop(false);
 };
 
@@ -698,7 +670,7 @@ Abilities.prototype.ExecuteDelayedAbility = function(data, lateness)
 Abilities.prototype.CanResolveDelayedAbility = function()
 {
 	const cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
-	if (!cmpUnitAI || typeof cmpUnitAI.GetOrders != "function")
+	if (!cmpUnitAI)
 		return true;
 
 	const orders = cmpUnitAI.GetOrders();
@@ -729,21 +701,21 @@ Abilities.prototype.FaceTowardsContext = function(targetContext)
 		return;
 
 	const cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
-	if (cmpUnitAI && targetContext.entity !== undefined && typeof cmpUnitAI.FaceTowardsTarget == "function")
+	if (cmpUnitAI && targetContext.entity !== undefined)
 	{
 		cmpUnitAI.FaceTowardsTarget(targetContext.entity);
 		return;
 	}
 
 	const cmpUnitMotion = Engine.QueryInterface(this.entity, IID_UnitMotion);
-	if (cmpUnitMotion && typeof cmpUnitMotion.FaceTowardsPoint == "function")
+	if (cmpUnitMotion)
 	{
 		cmpUnitMotion.FaceTowardsPoint(targetContext.position.x, targetContext.position.y !== undefined ? targetContext.position.y : targetContext.position.z);
 		return;
 	}
 
 	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
-	if (!cmpPosition || !cmpPosition.IsInWorld() || typeof cmpPosition.GetPosition2D != "function" || typeof cmpPosition.TurnTo != "function")
+	if (!cmpPosition || !cmpPosition.IsInWorld())
 		return;
 
 	cmpPosition.TurnTo(cmpPosition.GetPosition2D().angleTo(this.AsVector2D(targetContext.position)));
@@ -834,17 +806,13 @@ Abilities.prototype.GetEntityPosition = function(entity)
 	if (!cmpPosition || !cmpPosition.IsInWorld())
 		return undefined;
 
-	if (typeof cmpPosition.GetPosition2D == "function")
-		return cmpPosition.GetPosition2D();
-
-	const pos = cmpPosition.GetPosition();
-	return this.AsVector2D({ "x": pos.x, "z": pos.z });
+	return cmpPosition.GetPosition2D();
 };
 
 Abilities.prototype.GetEntityPosition3D = function(entity)
 {
 	const cmpPosition = Engine.QueryInterface(entity, IID_Position);
-	if (!cmpPosition || !cmpPosition.IsInWorld() || typeof cmpPosition.GetPosition != "function")
+	if (!cmpPosition || !cmpPosition.IsInWorld())
 		return undefined;
 
 	const pos = cmpPosition.GetPosition();
@@ -899,10 +867,7 @@ Abilities.prototype.GetIdentityClasses = function(cmpIdentity)
 	if (!cmpIdentity)
 		return [];
 
-	if (typeof cmpIdentity.GetClassesList == "function")
-		return cmpIdentity.GetClassesList();
-
-	return [];
+	return cmpIdentity.GetClassesList();
 };
 
 Abilities.prototype.HasAllIdentityClasses = function(cmpIdentity, requiredClasses)
@@ -913,11 +878,7 @@ Abilities.prototype.HasAllIdentityClasses = function(cmpIdentity, requiredClasse
 	if (!cmpIdentity)
 		return false;
 
-	if (typeof cmpIdentity.HasClass == "function")
-		return requiredClasses.every(className => cmpIdentity.HasClass(className));
-
-	const classes = this.GetIdentityClasses(cmpIdentity);
-	return requiredClasses.every(className => classes.indexOf(className) != -1);
+	return requiredClasses.every(className => cmpIdentity.HasClass(className));
 };
 
 Abilities.prototype.HasAnyIdentityClass = function(cmpIdentity, restrictedClasses)
@@ -925,11 +886,7 @@ Abilities.prototype.HasAnyIdentityClass = function(cmpIdentity, restrictedClasse
 	if (!restrictedClasses.length || !cmpIdentity)
 		return false;
 
-	if (typeof cmpIdentity.HasClass == "function")
-		return restrictedClasses.some(className => cmpIdentity.HasClass(className));
-
-	const classes = this.GetIdentityClasses(cmpIdentity);
-	return restrictedClasses.some(className => classes.indexOf(className) != -1);
+	return restrictedClasses.some(className => cmpIdentity.HasClass(className));
 };
 
 Abilities.prototype.GetEntityTargetError = function(ability, target, ignoreRange)
@@ -1002,14 +959,14 @@ Abilities.prototype.GetEffectOriginContext = function(effect, targetContext)
 Abilities.prototype.IsInBattle = function()
 {
 	const cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
-	if (!cmpUnitAI || typeof cmpUnitAI.GetCurrentState != "function")
+	if (!cmpUnitAI)
 		return false;
 
 	const state = cmpUnitAI.GetCurrentState();
 	if (state && state.indexOf("COMBAT") != -1)
 		return true;
 
-	const orders = typeof cmpUnitAI.GetOrders == "function" ? cmpUnitAI.GetOrders() : [];
+	const orders = cmpUnitAI.GetOrders();
 	if (!orders || !orders.length)
 		return false;
 
@@ -1028,7 +985,7 @@ Abilities.prototype.MatchesAutoTriggerState = function(autoTrigger)
 		return this.IsInBattle();
 
 	const cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
-	if (!cmpUnitAI || typeof cmpUnitAI.GetCurrentState != "function")
+	if (!cmpUnitAI)
 		return false;
 
 	const state = cmpUnitAI.GetCurrentState();
@@ -1468,7 +1425,7 @@ Abilities.prototype.AutoTriggerAbility = function(name)
 		return;
 
 	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
-	if (cmpPosition && typeof cmpPosition.IsInWorld == "function" && !cmpPosition.IsInWorld())
+	if (cmpPosition && !cmpPosition.IsInWorld())
 		return;
 
 	this.TriggerAbility(name);

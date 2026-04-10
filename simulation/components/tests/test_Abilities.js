@@ -150,7 +150,8 @@ AddMock(firstEntity, IID_Position, {
 	"IsInWorld": () => true,
 	"GetPosition": () => casterPosition3D,
 	"GetPosition2D": () => casterPosition2D,
-	"GetRotation": () => ({ "x": 0, "y": 1.25, "z": 0 })
+	"GetRotation": () => ({ "x": 0, "y": 1.25, "z": 0 }),
+	"TurnTo": y => rotatedTo = y
 });
 
 AddMock(SYSTEM_ENTITY, IID_ProjectileManager, {
@@ -198,6 +199,7 @@ AddMock(firstEntity, IID_UnitAI, {
 		resetAnimationCalled = name == "idle" && !once && speed == 1.0;
 	},
 	"Stop": () => activeOrders = [{ "type": "Stop" }],
+	"GetCurrentState": () => autoState,
 	"GetOrders": () => activeOrders,
 	"AddOrder": (type, data, queued, pushFront) =>
 	{
@@ -638,7 +640,8 @@ AddMock(fourthEntity, IID_Sound, {
 
 AddMock(fourthEntity, IID_UnitAI, {
 	"GetCurrentState": () => autoState,
-	"GetOrders": () => autoOrders
+	"GetOrders": () => autoOrders,
+	"FaceTowardsTarget": () => {}
 });
 
 AddMock(fourthEntity, IID_Position, {
@@ -661,7 +664,8 @@ AddMock(fifthEntity, IID_Position, {
 
 AddMock(fifthEntity, IID_UnitAI, {
 	"GetCurrentState": () => autoState,
-	"GetOrders": () => autoOrders
+	"GetOrders": () => autoOrders,
+	"FaceTowardsTarget": () => {}
 });
 
 const fourthTemplate = {
@@ -742,7 +746,8 @@ TS_ASSERT_EQUALS(autoPlayedSound, "attack");
 
 AddMock(fifthEntity, IID_UnitAI, {
 	"GetCurrentState": () => "",
-	"GetOrders": () => [null]
+	"GetOrders": () => [null],
+	"FaceTowardsTarget": () => {}
 });
 TS_ASSERT(!cmpStatefulAutoAbilities.MatchesAutoTriggerState(fifthTemplate.OrderedPulse.AutoTrigger));
 TS_ASSERT(!cmpStatefulAutoAbilities.IsInBattle());
@@ -1086,6 +1091,206 @@ TS_ASSERT(cmpChannelAbilities.TriggerAbility("Convert", {
 activeOrders = [{ "type": "Walk" }];
 cmpTimer.OnUpdate({ "turnLength": 0.6 });
 TS_ASSERT_EQUALS(convertedOwner, undefined);
+
+TS_ASSERT_EQUALS(cmpTargetedAbilities.GetEffectDelay(undefined), 0);
+TS_ASSERT_EQUALS(cmpTargetedAbilities.GetEffectDelay({ "Delay": "15" }), 15);
+TS_ASSERT_EQUALS(cmpTargetedAbilities.GetEffectDelay({ "EffectDelay": "25", "Delay": "15" }), 25);
+TS_ASSERT_EQUALS(cmpTargetedAbilities.GetTargetRange(undefined), undefined);
+TS_ASSERT_EQUALS(cmpTargetedAbilities.GetTargetRange({ "Range": "7" }), 7);
+TS_ASSERT_EQUALS(cmpTargetedAbilities.GetTargetRange({ "MaxRange": "9", "Range": "7" }), 9);
+TS_ASSERT_EQUALS(cmpTargetedAbilities.GetNormalizedTargetType("weird"), "none");
+TS_ASSERT_EQUALS(cmpTargetedAbilities.GetTokenString({ "_string": "Player Enemy" }), "Player Enemy");
+
+const vector2D = new Vector2D(5, 6);
+TS_ASSERT_EQUALS(cmpTargetedAbilities.AsVector2D(undefined), undefined);
+TS_ASSERT_EQUALS(cmpTargetedAbilities.AsVector2D(vector2D), vector2D);
+TS_ASSERT_UNEVAL_EQUALS(cmpTargetedAbilities.AsVector2D({ "x": 4, "y": 8 }), new Vector2D(4, 8));
+
+TS_ASSERT_EQUALS(cmpTargetedAbilities.GetIdentityClasses(undefined).length, 0);
+TS_ASSERT_UNEVAL_EQUALS(cmpTargetedAbilities.GetIdentityClasses({
+	"GetClassesList": () => ["Unit", "Organic"]
+}), ["Unit", "Organic"]);
+TS_ASSERT(cmpTargetedAbilities.HasAllIdentityClasses({
+	"GetClassesList": () => ["Unit", "Organic"],
+	"HasClass": className => ["Unit", "Organic"].indexOf(className) != -1
+}, ["Unit"]));
+TS_ASSERT(!cmpTargetedAbilities.HasAllIdentityClasses(undefined, ["Unit"]));
+TS_ASSERT(cmpTargetedAbilities.HasAnyIdentityClass({
+	"GetClassesList": () => ["Hero", "Organic"],
+	"HasClass": className => ["Hero", "Organic"].indexOf(className) != -1
+}, ["Hero"]));
+TS_ASSERT(!cmpTargetedAbilities.HasAnyIdentityClass(undefined, ["Hero"]));
+
+const fallbackClassTemplate = {
+	"Target": {
+		"Type": "Entity",
+		"MaxRange": "20",
+		"Classes": {
+			"_string": "Unit Organic"
+		},
+		"RestrictedClasses": {
+			"_string": "Hero"
+		}
+	}
+};
+AddMock(queuedTargetEntity, IID_Identity, {
+	"GetClassesList": () => ["Unit", "Organic"],
+	"HasClass": className => ["Unit", "Organic"].indexOf(className) != -1
+});
+TS_ASSERT_EQUALS(cmpTargetedAbilities.GetEntityTargetError(fallbackClassTemplate, queuedTargetEntity, true), "none");
+AddMock(queuedTargetEntity, IID_Identity, {
+	"GetClassesList": () => ["Unit", "Organic", "Hero"],
+	"HasClass": className => ["Unit", "Organic", "Hero"].indexOf(className) != -1
+});
+TS_ASSERT_EQUALS(cmpTargetedAbilities.GetEntityTargetError(fallbackClassTemplate, queuedTargetEntity, true), "restricted-classes");
+DeleteMock(queuedTargetEntity, IID_Identity);
+TS_ASSERT_EQUALS(cmpTargetedAbilities.GetEntityTargetError(fallbackClassTemplate, queuedTargetEntity, true), "identity");
+AddMock(queuedTargetEntity, IID_Identity, {
+	"HasClass": className => ["Unit", "Organic"].indexOf(className) != -1
+});
+
+TS_ASSERT(cmpTargetedAbilities.IsTargetInRange({}, new Vector2D(999, 999)));
+AddMock(firstEntity, IID_Position, {
+	"IsInWorld": () => false
+});
+TS_ASSERT(!cmpTargetedAbilities.IsTargetInRange({ "MaxRange": "10" }, new Vector2D(1, 1)));
+TS_ASSERT_EQUALS(cmpTargetedAbilities.GetCasterRotation(), 0);
+AddMock(firstEntity, IID_Position, {
+	"IsInWorld": () => true,
+	"GetPosition": () => casterPosition3D,
+	"GetPosition2D": () => casterPosition2D,
+	"GetRotation": () => ({ "x": 0, "y": 1.25, "z": 0 })
+});
+
+TS_ASSERT_EQUALS(cmpTargetedAbilities.SerializeTargetContext(undefined), undefined);
+TS_ASSERT_EQUALS(cmpTargetedAbilities.DeserializeTargetContext(undefined), undefined);
+TS_ASSERT_EQUALS(cmpTargetedAbilities.DeserializeTargetContext({ "type": "entity" }), undefined);
+TS_ASSERT_UNEVAL_EQUALS(cmpTargetedAbilities.SerializeTargetContext({
+	"type": "entity",
+	"entity": secondEntity
+}), {
+	"type": "entity",
+	"entity": secondEntity
+});
+TS_ASSERT_EQUALS(cmpTargetedAbilities.GetEffectOriginContext({}, undefined).entity, firstEntity);
+
+TS_ASSERT(!cmpTargetedAbilities.IssueMoveToEntityRange(undefined, secondEntity, 10));
+TS_ASSERT(cmpTargetedAbilities.IssueMoveToEntityRange({
+	"AddOrder": (type, data, queued, pushFront) =>
+	{
+		addedOrders.push({ "type": type, "data": data, "queued": queued, "pushFront": pushFront });
+	}
+}, secondEntity, 10));
+TS_ASSERT_EQUALS(addedOrders[addedOrders.length - 1].type, "WalkToTarget");
+TS_ASSERT(!cmpTargetedAbilities.IssueMoveToPointRange(undefined, 1, 2, 3));
+TS_ASSERT(cmpTargetedAbilities.IssueMoveToPointRange({
+	"WalkToPointRange": (x, z, min, max, queued, pushFront) =>
+	{
+		addedOrders.push({ "type": "WalkToPointRange", "x": x, "z": z, "min": min, "max": max, "queued": queued, "pushFront": pushFront });
+		return true;
+	}
+}, 7, 8, 9));
+TS_ASSERT_EQUALS(addedOrders[addedOrders.length - 1].type, "WalkToPointRange");
+
+DeleteMock(firstEntity, IID_UnitAI);
+cmpTargetedAbilities.resetAnimationVariant = true;
+cmpTargetedAbilities.ResetAnimation();
+TS_ASSERT_UNEVAL_EQUALS(selectedVariant, ["animationVariant", ""]);
+AddMock(firstEntity, IID_UnitAI, {
+	"SetDefaultAnimationVariant": () => resetVariantCalled = true,
+	"SelectAnimation": (name, once, speed) =>
+	{
+		resetAnimationCalled = name == "idle" && !once && speed == 1.0;
+	},
+	"Stop": () => activeOrders = [{ "type": "Stop" }],
+	"GetCurrentState": () => autoState,
+	"GetOrders": () => activeOrders,
+	"AddOrder": (type, data, queued, pushFront) =>
+	{
+		addedOrders.push({ "type": type, "data": data, "queued": queued, "pushFront": pushFront });
+	},
+	"WalkToPointRange": (x, z, min, max) =>
+	{
+		walkedToPointRange = { "x": x, "z": z, "min": min, "max": max };
+		return true;
+	},
+	"MoveToPointRange": (x, z, min, max) =>
+	{
+		movedToPointRange = { "x": x, "z": z, "min": min, "max": max };
+		return true;
+	},
+	"FaceTowardsTarget": target => facedTarget = target
+});
+
+const originalAddLocalEntity = Engine.AddLocalEntity;
+Engine.AddLocalEntity = () => INVALID_ENTITY;
+cmpTargetedAbilities.SpawnParticles({ "Particles": { "Template": "special/effects/missing" } }, cmpTargetedAbilities.GetContextForEntity(secondEntity));
+Engine.AddLocalEntity = originalAddLocalEntity;
+
+const originalAddEntity = Engine.AddEntity;
+Engine.AddEntity = () => INVALID_ENTITY;
+cmpTargetedAbilities.SpawnEntity({ "SpawnEntity": { "Template": "units/missing", "Origin": "target" } }, { "type": "point", "position": new Vector2D(3, 4) });
+Engine.AddEntity = originalAddEntity;
+
+TS_ASSERT_UNEVAL_EQUALS(cmpTargetedAbilities.GetTargetsAroundContext(undefined, 5, [enemy], IID_Health), []);
+DeleteMock(SYSTEM_ENTITY, IID_RangeManager);
+TS_ASSERT_UNEVAL_EQUALS(cmpTargetedAbilities.GetTargetsAroundContext({ "type": "point", "position": new Vector2D(1, 2) }, 5, [enemy], IID_Health), []);
+AddMock(SYSTEM_ENTITY, IID_RangeManager, {
+	"ExecuteQuery": (entity, min, max, players, iid, accountForSize) =>
+	{
+		queryPlayers = players;
+		queryType = "entity";
+		if (iid == IID_Health)
+			return [secondEntity, thirdEntity];
+		return [firstEntity, secondEntity, thirdEntity];
+	},
+	"ExecuteQueryAroundPos": (position, min, max, players, iid, accountForSize) =>
+	{
+		queryPlayers = players;
+		queryType = "point";
+		aroundQueryPosition = [position.x, position.y];
+		if (iid == IID_Health)
+			return [secondEntity];
+		return [secondEntity];
+	}
+});
+
+DeleteMock(firstEntity, IID_Ownership);
+TS_ASSERT_UNEVAL_EQUALS(cmpTargetedAbilities.GetTargetPlayers("", "Player"), []);
+AddMock(firstEntity, IID_Ownership, {
+	"GetOwner": () => owner
+});
+AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
+	"GetAllPlayers": () => [0, owner, ally, enemy],
+	"GetPlayerByID": () => INVALID_ENTITY
+});
+TS_ASSERT_UNEVAL_EQUALS(cmpTargetedAbilities.GetTargetPlayers("Enemy", "Player"), []);
+AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
+	"GetAllPlayers": () => [0, owner, ally, enemy],
+	"GetPlayerByID": id => ({
+		[owner]: playerEntity,
+		[ally]: allyPlayerEntity,
+		[enemy]: enemyPlayerEntity
+	}[id])
+});
+TS_ASSERT_UNEVAL_EQUALS(cmpTargetedAbilities.GetTargetPlayers("   ", "Player"), [owner]);
+TS_ASSERT_UNEVAL_EQUALS(cmpTargetedAbilities.GetTargetPlayers("Gaia", "Player"), [0]);
+TS_ASSERT(cmpTargetedAbilities.HasAttackEffects({ "Capture": "1" }));
+TS_ASSERT(!cmpTargetedAbilities.HasAttackEffects(undefined));
+
+cmpTargetedAbilities.animationResetTimer = 12345;
+cmpTargetedAbilities.autoTriggerTimers = [11, 12];
+cmpTargetedAbilities.delayedAbilityTimers = [21, 22];
+cmpTargetedAbilities.queuedAbilityTimers = { "x": 31, "y": 32 };
+cmpTargetedAbilities.CancelQueuedAbilityTimer("missing");
+cmpTargetedAbilities.CancelAnimationResetTimer();
+cmpTargetedAbilities.CancelAutoTriggerTimers();
+cmpTargetedAbilities.CancelDelayedAbilityTimers();
+cmpTargetedAbilities.CancelQueuedAbilityTimers();
+TS_ASSERT_EQUALS(cmpTargetedAbilities.animationResetTimer, undefined);
+TS_ASSERT_EQUALS(cmpTargetedAbilities.autoTriggerTimers.length, 0);
+TS_ASSERT_EQUALS(cmpTargetedAbilities.delayedAbilityTimers.length, 0);
+TS_ASSERT_EQUALS(Object.keys(cmpTargetedAbilities.queuedAbilityTimers).length, 0);
 
 cmpChannelAbilities.OnDestroy();
 cmpDelayedAbilities.OnDestroy();
