@@ -459,6 +459,7 @@ Abilities.prototype.TriggerAbility = function(name, data)
 	this.lastTriggered[name] = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).GetTime();
 
 	this.PrepareDelayedAbility(ability);
+	this.FaceTowardsContext(targetContext);
 	this.TriggerAnimation(ability);
 	this.ExecuteImmediateAbilityEffects(name, ability, targetContext);
 	this.ScheduleAbilityExecution(name, ability, targetContext);
@@ -573,6 +574,7 @@ Abilities.prototype.ProcessQueuedAbility = function(data, lateness)
 
 	this.lastTriggered[data.name] = currentTime;
 	this.PrepareDelayedAbility(ability);
+	this.FaceTowardsContext(targetContext);
 	this.TriggerAnimation(ability);
 	this.ExecuteImmediateAbilityEffects(data.name, ability, targetContext);
 	this.ScheduleAbilityExecution(data.name, ability, targetContext);
@@ -658,6 +660,32 @@ Abilities.prototype.ExecuteAbilityEffects = function(name, ability, targetContex
 
 	if (ability.Sound)
 		PlaySound(ability.Sound, this.entity);
+};
+
+Abilities.prototype.FaceTowardsContext = function(targetContext)
+{
+	if (!targetContext || !targetContext.position)
+		return;
+
+	const cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
+	if (cmpUnitAI && targetContext.entity !== undefined && typeof cmpUnitAI.FaceTowardsTarget == "function")
+	{
+		cmpUnitAI.FaceTowardsTarget(targetContext.entity);
+		return;
+	}
+
+	const cmpUnitMotion = Engine.QueryInterface(this.entity, IID_UnitMotion);
+	if (cmpUnitMotion && typeof cmpUnitMotion.FaceTowardsPoint == "function")
+	{
+		cmpUnitMotion.FaceTowardsPoint(targetContext.position.x, targetContext.position.y !== undefined ? targetContext.position.y : targetContext.position.z);
+		return;
+	}
+
+	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
+	if (!cmpPosition || !cmpPosition.IsInWorld() || typeof cmpPosition.GetPosition2D != "function" || typeof cmpPosition.TurnTo != "function")
+		return;
+
+	cmpPosition.TurnTo(cmpPosition.GetPosition2D().angleTo(this.AsVector2D(targetContext.position)));
 };
 
 Abilities.prototype.SerializeTargetContext = function(targetContext)

@@ -62,6 +62,7 @@ let casterPosition2D = new Vector2D(11, 13);
 let casterPosition3D = new Vector3D(11, 0, 13);
 let movedToPointRange = undefined;
 let walkedToPointRange = undefined;
+let facedTarget = undefined;
 
 AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
 	"GetAllPlayers": () => [0, owner, ally, enemy],
@@ -179,7 +180,8 @@ AddMock(firstEntity, IID_UnitAI, {
 	{
 		movedToPointRange = { "x": x, "z": z, "min": min, "max": max };
 		return true;
-	}
+	},
+	"FaceTowardsTarget": target => facedTarget = target
 });
 
 AddMock(localEffectEntity, IID_Position, {
@@ -797,6 +799,7 @@ const targetedAttackCount = attackCalls.length;
 TS_ASSERT(cmpTargetedAbilities.TriggerAbility("MarkTarget", {
 	"target": secondEntity
 }));
+TS_ASSERT_EQUALS(facedTarget, secondEntity);
 TS_ASSERT_UNEVAL_EQUALS(jumpedTo, [15, 18]);
 TS_ASSERT_EQUALS(attackCalls.length, targetedAttackCount);
 TS_ASSERT_EQUALS(launchedProjectile.position.x, 15);
@@ -815,6 +818,7 @@ const gaiaAttackCount = attackCalls.length;
 TS_ASSERT(cmpTargetedAbilities.TriggerAbility("MarkTarget", {
 	"target": gaiaTargetEntity
 }));
+TS_ASSERT_EQUALS(facedTarget, gaiaTargetEntity);
 TS_ASSERT_EQUALS(attackCalls.length, gaiaAttackCount);
 cmpTimer.OnUpdate({ "turnLength": 0.1 });
 TS_ASSERT_EQUALS(attackCalls.length, gaiaAttackCount + 1);
