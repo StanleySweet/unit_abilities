@@ -5,6 +5,7 @@
       <Action>passive</Action>
       <Icon>abilities/snare_trap.png</Icon>
       <Cooldown>1000</Cooldown>
+      <Delay>200</Delay>
       <Target>
         <Type>Entity</Type>
         <Range>4</Range>
@@ -20,6 +21,7 @@
         <Modifiers>
           <SnareSpeed>
             <Paths datatype="tokens">UnitMotion/WalkSpeed</Paths>
+            <Affects datatype="tokens">Unit</Affects>
             <Multiply>0.45</Multiply>
           </SnareSpeed>
         </Modifiers>
