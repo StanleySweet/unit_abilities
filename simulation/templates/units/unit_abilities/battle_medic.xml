@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="template_unit_support_healer">
+  <Identity>
+    <Civ>gaia</Civ>
+    <Lang>latin</Lang>
+    <Phenotype>male</Phenotype>
+    <SelectionGroupName>units/unit_abilities/battle_medic</SelectionGroupName>
+    <GenericName>Battle Medic</GenericName>
+    <SpecificName>Medicus Tacticus</SpecificName>
+    <Icon>units/rome/support_healer.png</Icon>
+    <Classes datatype="tokens">Human Organic DemoAbilityUnit</Classes>
+    <VisibleClasses datatype="tokens">Support Healer Demo Ability</VisibleClasses>
+  </Identity>
+  <Abilities>
+    <FocusedMend>
+      <Action>unit-target</Action>
+      <Icon>technologies/healing_rate.png</Icon>
+      <Cooldown>10000</Cooldown>
+      <Tooltip>Select a nearby friendly organic unit and restore a large amount of health instantly.</Tooltip>
+      <Target>
+        <Type>Entity</Type>
+        <MaxRange>22</MaxRange>
+        <Cursor>action-heal</Cursor>
+        <TargetPlayers datatype="tokens">Player Ally MutualAlly</TargetPlayers>
+        <Classes datatype="tokens">Unit Organic</Classes>
+        <AllowSelf>false</AllowSelf>
+      </Target>
+      <Animation>attack_melee</Animation>
+      <AnimationDuration>1000</AnimationDuration>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Origin>target</Origin>
+        <Duration>1000</Duration>
+      </Particles>
+      <DirectHeal>
+        <Origin>target</Origin>
+        <Amount>30</Amount>
+      </DirectHeal>
+      <Sound>order_heal</Sound>
+    </FocusedMend>
+    <RenewingWave>
+      <Action>point-target</Action>
+      <Icon>technologies/healing_range.png</Icon>
+      <Cooldown>18000</Cooldown>
+      <Tooltip>Target the ground to release a healing pulse that restores nearby friendly units.</Tooltip>
+      <Target>
+        <Type>Point</Type>
+        <Range>4</Range>
+        <MaxRange>24</MaxRange>
+        <Cursor>action-heal</Cursor>
+      </Target>
+      <Animation>attack_melee</Animation>
+      <AnimationDuration>1400</AnimationDuration>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Origin>target</Origin>
+        <Duration>1400</Duration>
+      </Particles>
+      <AreaHeal>
+        <Origin>target</Origin>
+        <Range>10</Range>
+        <Amount>12</Amount>
+        <TargetPlayers datatype="tokens">Player Ally MutualAlly</TargetPlayers>
+      </AreaHeal>
+      <Sound>order_heal</Sound>
+    </RenewingWave>
+  </Abilities>
+  <Builder disable=""/>
+  <Promotion disable=""/>
+  <ResourceGatherer disable=""/>
+  <VisualActor>
+    <Actor>units/romans/healer.xml</Actor>
+  </VisualActor>
+</Entity>

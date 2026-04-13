@@ -34,6 +34,7 @@ Engine.LoadComponentScript("interfaces/Health.js");
 Engine.LoadComponentScript("interfaces/Player.js");
 Engine.LoadComponentScript("interfaces/PlayerManager.js");
 Engine.LoadComponentScript("interfaces/DelayedDamage.js");
+Engine.LoadComponentScript("interfaces/Infiltrator.js");
 Engine.LoadComponentScript("interfaces/SpawnedEntity.js");
 Engine.LoadComponentScript("interfaces/StatusEffectsReceiver.js");
 Engine.LoadComponentScript("interfaces/Timer.js");
@@ -49,6 +50,9 @@ const fifthEntity = 105;
 const gaiaTargetEntity = 106;
 const restrictedTargetEntity = 107;
 const queuedTargetEntity = 108;
+const allyTargetEntity = 109;
+const enemyStructureEntity = 110;
+const enemyMilitaryStructureEntity = 111;
 const localEffectEntity = 301;
 const playerEntity = 1007;
 const allyPlayerEntity = 1008;
@@ -77,6 +81,8 @@ let resetAnimationCalled = false;
 let autoOrders = [];
 let autoState = "INDIVIDUAL.IDLE";
 let statusCalls = [];
+let healCalls = [];
+let infiltrationCalls = [];
 let queryPlayers = undefined;
 let queryType = undefined;
 let aroundQueryPosition = undefined;
@@ -93,6 +99,7 @@ let addedOrders = [];
 let queuedTargetPosition2D = new Vector2D(90, 90);
 let queuedTargetPosition3D = new Vector3D(90, 0, 90);
 let ownedEntities = [];
+let obstructionInRange = false;
 
 AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
 	"GetAllPlayers": () => [0, owner, ally, enemy],
@@ -139,6 +146,14 @@ AddMock(firstEntity, IID_Sound, {
 
 AddMock(firstEntity, IID_Ownership, {
 	"GetOwner": () => owner
+});
+
+AddMock(firstEntity, IID_Infiltrator, {
+	"StartInfiltration": (target, data) =>
+	{
+		infiltrationCalls.push({ "target": target, "data": data });
+		return true;
+	}
 });
 
 AddMock(playerEntity, IID_Diplomacy, {
@@ -236,7 +251,7 @@ AddMock(SYSTEM_ENTITY, IID_RangeManager, {
 		queryPlayers = players;
 		queryType = "entity";
 		if (iid == IID_Health)
-			return [secondEntity, thirdEntity];
+			return players.indexOf(owner) != -1 ? [allyTargetEntity, thirdEntity] : [secondEntity, thirdEntity];
 		return [firstEntity, secondEntity, thirdEntity];
 	},
 	"ExecuteQueryAroundPos": (position, min, max, players, iid, accountForSize) =>
@@ -245,9 +260,13 @@ AddMock(SYSTEM_ENTITY, IID_RangeManager, {
 		queryType = "point";
 		aroundQueryPosition = [position.x, position.y];
 		if (iid == IID_Health)
-			return [secondEntity];
+			return players.indexOf(owner) != -1 ? [allyTargetEntity] : [secondEntity];
 		return [secondEntity];
 	}
+});
+
+AddMock(SYSTEM_ENTITY, IID_ObstructionManager, {
+	"IsInTargetRange": (entity, target, min, max, accountForSize) => obstructionInRange
 });
 
 AddMock(firstEntity, IID_StatusEffectsReceiver, {
@@ -261,7 +280,13 @@ AddMock(secondEntity, IID_StatusEffectsReceiver, {
 });
 
 AddMock(secondEntity, IID_Health, {
-	"TakeDamage": () => ({ "healthChange": -1 })
+	"TakeDamage": () => ({ "healthChange": -1 }),
+	"Increase": amount =>
+	{
+		healCalls.push({ "target": secondEntity, "amount": amount });
+		return { "old": 20, "new": 20 + amount };
+	},
+	"IsUnhealable": () => false
 });
 
 AddMock(secondEntity, IID_Position, {
@@ -282,7 +307,13 @@ AddMock(secondEntity, IID_Identity, {
 });
 
 AddMock(thirdEntity, IID_Health, {
-	"TakeDamage": () => ({ "healthChange": -1 })
+	"TakeDamage": () => ({ "healthChange": -1 }),
+	"Increase": amount =>
+	{
+		healCalls.push({ "target": thirdEntity, "amount": amount });
+		return { "old": 30, "new": 30 + amount };
+	},
+	"IsUnhealable": () => true
 });
 
 AddMock(thirdEntity, IID_Position, {
@@ -311,7 +342,13 @@ AddMock(fifthEntity, IID_Ownership, {
 });
 
 AddMock(gaiaTargetEntity, IID_Health, {
-	"TakeDamage": () => ({ "healthChange": -1 })
+	"TakeDamage": () => ({ "healthChange": -1 }),
+	"Increase": amount =>
+	{
+		healCalls.push({ "target": gaiaTargetEntity, "amount": amount });
+		return { "old": 25, "new": 25 + amount };
+	},
+	"IsUnhealable": () => false
 });
 
 AddMock(gaiaTargetEntity, IID_Position, {
@@ -346,7 +383,13 @@ AddMock(restrictedTargetEntity, IID_Identity, {
 });
 
 AddMock(queuedTargetEntity, IID_Health, {
-	"TakeDamage": () => ({ "healthChange": -1 })
+	"TakeDamage": () => ({ "healthChange": -1 }),
+	"Increase": amount =>
+	{
+		healCalls.push({ "target": queuedTargetEntity, "amount": amount });
+		return { "old": 18, "new": 18 + amount };
+	},
+	"IsUnhealable": () => false
 });
 
 AddMock(queuedTargetEntity, IID_Position, {
@@ -364,6 +407,64 @@ AddMock(queuedTargetEntity, IID_Ownership, {
 
 AddMock(queuedTargetEntity, IID_Identity, {
 	"HasClass": className => ["Unit", "Organic"].indexOf(className) != -1
+});
+
+AddMock(allyTargetEntity, IID_Health, {
+	"TakeDamage": () => ({ "healthChange": -1 }),
+	"Increase": amount =>
+	{
+		healCalls.push({ "target": allyTargetEntity, "amount": amount });
+		return { "old": 12, "new": 12 + amount };
+	},
+	"IsUnhealable": () => false
+});
+
+AddMock(allyTargetEntity, IID_Position, {
+	"IsInWorld": () => true,
+	"GetPosition": () => ({ "x": 13, "y": 0, "z": 15 }),
+	"GetPosition2D": () => new Vector2D(13, 15),
+	"GetPreviousPosition": () => ({ "x": 13, "y": 0, "z": 15 }),
+	"GetHeightAt": () => 0
+});
+
+AddMock(allyTargetEntity, IID_Ownership, {
+	"GetOwner": () => owner
+});
+
+AddMock(allyTargetEntity, IID_Identity, {
+	"HasClass": className => ["Unit", "Organic"].indexOf(className) != -1
+});
+
+AddMock(enemyStructureEntity, IID_Position, {
+	"IsInWorld": () => true,
+	"GetPosition": () => ({ "x": 20, "y": 0, "z": 20 }),
+	"GetPosition2D": () => new Vector2D(20, 20),
+	"GetPreviousPosition": () => ({ "x": 20, "y": 0, "z": 20 }),
+	"GetHeightAt": () => 0
+});
+
+AddMock(enemyStructureEntity, IID_Ownership, {
+	"GetOwner": () => enemy
+});
+
+AddMock(enemyStructureEntity, IID_Identity, {
+	"HasClass": className => ["Structure", "Barter"].indexOf(className) != -1
+});
+
+AddMock(enemyMilitaryStructureEntity, IID_Position, {
+	"IsInWorld": () => true,
+	"GetPosition": () => ({ "x": 24, "y": 0, "z": 24 }),
+	"GetPosition2D": () => new Vector2D(24, 24),
+	"GetPreviousPosition": () => ({ "x": 24, "y": 0, "z": 24 }),
+	"GetHeightAt": () => 0
+});
+
+AddMock(enemyMilitaryStructureEntity, IID_Ownership, {
+	"GetOwner": () => enemy
+});
+
+AddMock(enemyMilitaryStructureEntity, IID_Identity, {
+	"HasClass": className => ["Structure", "Fortress"].indexOf(className) != -1
 });
 
 const firstTemplate = {
@@ -525,6 +626,12 @@ cmpAbilitiesWithoutUnitAI.ResetAnimation();
 TS_ASSERT_EQUALS(secondEntityVariant, undefined);
 TS_ASSERT_UNEVAL_EQUALS(secondEntityAnimation, ["idle", false, 1.0]);
 TS_ASSERT_EQUALS(cmpAbilitiesWithoutUnitAI.GetBuffStatusName("HeroicPose", { }), "ability/102/HeroicPose");
+TS_ASSERT_EQUALS(cmpAbilitiesWithoutUnitAI.GetBuffStatusName("HeroicPose", {
+	"StatusName": "SharedHeroicPose"
+}), "SharedHeroicPose");
+TS_ASSERT_EQUALS(cmpAbilitiesWithoutUnitAI.GetBuffStatusName("SnareTrap", {
+	"StatusName": "SnareTrap"
+}), "SnareTrap");
 TS_ASSERT_UNEVAL_EQUALS(cmpAbilitiesWithoutUnitAI.GetBuffStatusData({
 	"Duration": "2500",
 	"Modifiers": {
@@ -891,6 +998,69 @@ const targetedTemplate = {
 				"Template": "special/effects/hero_ability_aura",
 				"Origin": "target"
 		}
+	},
+	"RestoreTarget": {
+		"Action": "unit-target",
+		"Icon": "technologies/healing_rate.png",
+		"Cooldown": "6000",
+		"Target": {
+			"Type": "Entity",
+			"MaxRange": "20",
+			"TargetPlayers": {
+				"_string": "Player"
+			},
+			"Classes": {
+				"_string": "Unit Organic"
+			},
+			"AllowSelf": "false"
+		},
+		"DirectHeal": {
+			"Origin": "target",
+			"Amount": "25"
+		}
+	},
+	"RadiantBurst": {
+		"Action": "point-target",
+		"Icon": "technologies/healing_range.png",
+		"Cooldown": "12000",
+		"Target": {
+			"Type": "Point",
+			"Range": "4",
+			"MaxRange": "18"
+		},
+		"AreaHeal": {
+			"Origin": "target",
+			"Range": "7",
+			"Amount": "12",
+			"TargetPlayers": {
+				"_string": "Player"
+			}
+		}
+	},
+	"InfiltrateTarget": {
+		"Action": "unit-target",
+		"Icon": "abilities/conversion.png",
+		"Cooldown": "9000",
+		"Target": {
+			"Type": "Entity",
+			"MaxRange": "20",
+			"TargetPlayers": {
+				"_string": "Enemy"
+			},
+			"Classes": {
+				"_string": "Structure"
+			},
+			"ClassesAny": {
+				"_string": "CivCentre Barter DropsiteWood DropsiteStone DropsiteMetal DropsiteFood"
+			},
+			"AllowSelf": "false"
+		},
+		"Infiltration": {
+			"Duration": "5000",
+			"ResourceType": "metal",
+			"Amount": "10",
+			"EscapeDistance": "8"
+		}
 	}
 };
 
@@ -902,6 +1072,8 @@ TS_ASSERT(cmpTargetedAbilities.CanTargetEntity(targetedTemplate.MarkTarget, seco
 TS_ASSERT(cmpTargetedAbilities.CanTargetEntity(targetedTemplate.MarkTarget, gaiaTargetEntity));
 TS_ASSERT(!cmpTargetedAbilities.CanTargetEntity(targetedTemplate.MarkTarget, thirdEntity));
 TS_ASSERT(!cmpTargetedAbilities.CanTargetEntity(targetedTemplate.MarkTarget, firstEntity));
+TS_ASSERT(!cmpTargetedAbilities.CanTargetEntity(targetedTemplate.RestoreTarget, secondEntity));
+TS_ASSERT(cmpTargetedAbilities.CanTargetEntity(targetedTemplate.RestoreTarget, allyTargetEntity));
 casterPosition2D = new Vector2D(16, 18);
 casterPosition3D = new Vector3D(16, 0, 18);
 TS_ASSERT(cmpTargetedAbilities.TriggerAbility("DeployTrap", {
@@ -914,6 +1086,18 @@ TS_ASSERT_EQUALS(queryType, "point");
 TS_ASSERT_UNEVAL_EQUALS(aroundQueryPosition, [18, 20]);
 casterPosition2D = new Vector2D(11, 13);
 casterPosition3D = new Vector3D(11, 0, 13);
+
+infiltrationCalls.length = 0;
+TS_ASSERT(cmpTargetedAbilities.TriggerAbility("InfiltrateTarget", {
+	"target": enemyStructureEntity
+}));
+TS_ASSERT(!cmpTargetedAbilities.CanTargetEntity(targetedTemplate.InfiltrateTarget, enemyMilitaryStructureEntity));
+TS_ASSERT_EQUALS(infiltrationCalls.length, 1);
+TS_ASSERT_EQUALS(infiltrationCalls[0].target, enemyStructureEntity);
+TS_ASSERT_EQUALS(infiltrationCalls[0].data.duration, 5000);
+TS_ASSERT_EQUALS(infiltrationCalls[0].data.resourceType, "metal");
+TS_ASSERT_EQUALS(infiltrationCalls[0].data.amount, 10);
+TS_ASSERT_EQUALS(infiltrationCalls[0].data.escapeDistance, 8);
 
 ownedEntities = [201, 202, 203, 204];
 AddMock(201, IID_Identity, {
@@ -1043,6 +1227,28 @@ TS_ASSERT_EQUALS(attackCalls[queuedAttackCount].target, queuedTargetEntity);
 queuedTargetPosition2D = new Vector2D(90, 90);
 queuedTargetPosition3D = new Vector3D(90, 0, 90);
 
+healCalls.length = 0;
+TS_ASSERT(cmpTargetedAbilities.TriggerAbility("RestoreTarget", {
+	"target": allyTargetEntity
+}));
+TS_ASSERT_EQUALS(facedTarget, allyTargetEntity);
+TS_ASSERT_EQUALS(healCalls.length, 1);
+TS_ASSERT_UNEVAL_EQUALS(healCalls[0], { "target": allyTargetEntity, "amount": 25 });
+
+healCalls.length = 0;
+casterPosition2D = new Vector2D(15, 17);
+casterPosition3D = new Vector3D(15, 0, 17);
+TS_ASSERT(cmpTargetedAbilities.TriggerAbility("RadiantBurst", {
+	"position": { "x": 17, "z": 19 }
+}));
+TS_ASSERT_EQUALS(queryType, "point");
+TS_ASSERT_UNEVAL_EQUALS(queryPlayers, [owner]);
+TS_ASSERT_UNEVAL_EQUALS(aroundQueryPosition, [17, 19]);
+TS_ASSERT_EQUALS(healCalls.length, 1);
+TS_ASSERT_EQUALS(healCalls[0].amount, 12);
+casterPosition2D = new Vector2D(11, 13);
+casterPosition3D = new Vector3D(11, 0, 13);
+
 const restrictedTemplate = {
 	"ConvertTarget": {
 		"Action": "unit-target",
@@ -1090,6 +1296,7 @@ TS_ASSERT_UNEVAL_EQUALS(cmpRestrictedAbilities.GetAbilityStates(), [{
 		"previewTemplate": "",
 		"players": "Gaia Enemy",
 		"classes": "Unit Organic",
+		"classesAny": "",
 		"restrictedClasses": "Hero Titan",
 		"allowSelf": false
 	}
@@ -1278,6 +1485,36 @@ AddMock(firstEntity, IID_Position, {
 	"GetPosition2D": () => casterPosition2D,
 	"GetRotation": () => ({ "x": 0, "y": 1.25, "z": 0 })
 });
+obstructionInRange = false;
+TS_ASSERT(!cmpTargetedAbilities.IsEntityInRange(secondEntity, 8));
+obstructionInRange = true;
+TS_ASSERT(cmpTargetedAbilities.IsEntityInRange(secondEntity, 8));
+obstructionInRange = false;
+TS_ASSERT_EQUALS(cmpTargetedAbilities.GetEntityTargetError({
+	"Target": {
+		"Type": "Entity",
+		"MaxRange": "8",
+		"TargetPlayers": {
+			"_string": "Enemy"
+		},
+		"Classes": {
+			"_string": "Unit"
+		}
+	}
+}, secondEntity, false), "range");
+obstructionInRange = true;
+TS_ASSERT_EQUALS(cmpTargetedAbilities.GetEntityTargetError({
+	"Target": {
+		"Type": "Entity",
+		"MaxRange": "8",
+		"TargetPlayers": {
+			"_string": "Enemy"
+		},
+		"Classes": {
+			"_string": "Unit"
+		}
+	}
+}, secondEntity, false), "none");
 TS_ASSERT(cmpTargetedAbilities.CanResolvePointTarget(targetedTemplate.DeployTrap, { "x": 11, "z": 16 }));
 TS_ASSERT(!cmpTargetedAbilities.CanResolvePointTarget(targetedTemplate.DeployTrap, { "x": 18, "z": 20 }));
 
@@ -1360,7 +1597,7 @@ AddMock(SYSTEM_ENTITY, IID_RangeManager, {
 		queryPlayers = players;
 		queryType = "entity";
 		if (iid == IID_Health)
-			return [secondEntity, thirdEntity];
+			return players.indexOf(owner) != -1 ? [allyTargetEntity, thirdEntity] : [secondEntity, thirdEntity];
 		return [firstEntity, secondEntity, thirdEntity];
 	},
 	"ExecuteQueryAroundPos": (position, min, max, players, iid, accountForSize) =>
@@ -1369,7 +1606,7 @@ AddMock(SYSTEM_ENTITY, IID_RangeManager, {
 		queryType = "point";
 		aroundQueryPosition = [position.x, position.y];
 		if (iid == IID_Health)
-			return [secondEntity];
+			return players.indexOf(owner) != -1 ? [allyTargetEntity] : [secondEntity];
 		return [secondEntity];
 	}
 });
@@ -1396,6 +1633,10 @@ TS_ASSERT_UNEVAL_EQUALS(cmpTargetedAbilities.GetTargetPlayers("   ", "Player"), 
 TS_ASSERT_UNEVAL_EQUALS(cmpTargetedAbilities.GetTargetPlayers("Gaia", "Player"), [0]);
 TS_ASSERT(cmpTargetedAbilities.HasAttackEffects({ "Capture": "1" }));
 TS_ASSERT(!cmpTargetedAbilities.HasAttackEffects(undefined));
+TS_ASSERT(!cmpTargetedAbilities.HealEntity(undefined, 5));
+TS_ASSERT(cmpTargetedAbilities.HealEntity(allyTargetEntity, 5));
+TS_ASSERT(!cmpTargetedAbilities.HealEntity(thirdEntity, 5));
+TS_ASSERT(!cmpTargetedAbilities.HealEntity(allyTargetEntity, 0));
 
 cmpTargetedAbilities.animationResetTimer = 12345;
 cmpTargetedAbilities.autoTriggerTimers = [11, 12];

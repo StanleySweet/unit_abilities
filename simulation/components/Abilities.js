@@ -74,18 +74,26 @@ Abilities.prototype.Schema =
 									"<text/>" +
 								"</element>" +
 							"</optional>" +
-							"<optional>" +
-								"<element name='Classes' a:help='Optional whitespace-separated identity classes required on an entity target.'>" +
-									"<attribute name='datatype'>" +
-										"<value>tokens</value>" +
-									"</attribute>" +
-									"<text/>" +
-								"</element>" +
-							"</optional>" +
-							"<optional>" +
-								"<element name='RestrictedClasses' a:help='Optional whitespace-separated identity classes that disqualify an entity target.'>" +
-									"<attribute name='datatype'>" +
-										"<value>tokens</value>" +
+								"<optional>" +
+									"<element name='Classes' a:help='Optional whitespace-separated identity classes required on an entity target.'>" +
+										"<attribute name='datatype'>" +
+											"<value>tokens</value>" +
+										"</attribute>" +
+										"<text/>" +
+									"</element>" +
+								"</optional>" +
+								"<optional>" +
+									"<element name='ClassesAny' a:help='Optional whitespace-separated identity classes where the target must match at least one.'>" +
+										"<attribute name='datatype'>" +
+											"<value>tokens</value>" +
+										"</attribute>" +
+										"<text/>" +
+									"</element>" +
+								"</optional>" +
+								"<optional>" +
+									"<element name='RestrictedClasses' a:help='Optional whitespace-separated identity classes that disqualify an entity target.'>" +
+										"<attribute name='datatype'>" +
+											"<value>tokens</value>" +
 									"</attribute>" +
 									"<text/>" +
 								"</element>" +
@@ -282,6 +290,79 @@ Abilities.prototype.Schema =
 					"</element>" +
 				"</optional>" +
 				"<optional>" +
+					"<element name='DirectHeal' a:help='Optional direct heal applied to a single entity when the ability is triggered.'>" +
+						"<interleave>" +
+							"<element name='Amount' a:help='Hitpoints restored to the chosen target.'>" +
+								"<ref name='positiveDecimal'/>" +
+							"</element>" +
+							"<optional>" +
+								"<element name='Origin' a:help='Whether the direct heal should apply to the caster or the chosen target.'>" +
+									"<choice>" +
+										"<value>caster</value>" +
+										"<value>target</value>" +
+									"</choice>" +
+								"</element>" +
+							"</optional>" +
+						"</interleave>" +
+					"</element>" +
+				"</optional>" +
+				"<optional>" +
+					"<element name='AreaHeal' a:help='Optional area heal that restores nearby units when the ability is triggered.'>" +
+						"<interleave>" +
+							"<element name='Range' a:help='Radius in meters used to find nearby heal targets.'>" +
+								"<ref name='nonNegativeDecimal'/>" +
+							"</element>" +
+							"<element name='Amount' a:help='Hitpoints restored to each target found in range.'>" +
+								"<ref name='positiveDecimal'/>" +
+							"</element>" +
+							"<optional>" +
+								"<element name='Origin' a:help='Whether the area heal should be centered on the caster or the chosen target.'>" +
+									"<choice>" +
+										"<value>caster</value>" +
+										"<value>target</value>" +
+									"</choice>" +
+								"</element>" +
+							"</optional>" +
+							"<optional>" +
+								"<element name='TargetPlayers' a:help='Optional whitespace-separated relation list such as Player Ally MutualAlly.'>" +
+									"<attribute name='datatype'>" +
+										"<value>tokens</value>" +
+									"</attribute>" +
+									"<text/>" +
+								"</element>" +
+							"</optional>" +
+							"<optional>" +
+								"<element name='IncludeSelf' a:help='Whether the caster may also be healed by the area effect.'>" +
+									"<choice>" +
+										"<value>true</value>" +
+										"<value>false</value>" +
+									"</choice>" +
+								"</element>" +
+							"</optional>" +
+						"</interleave>" +
+					"</element>" +
+				"</optional>" +
+				"<optional>" +
+					"<element name='Infiltration' a:help='Optional fake infiltration that locks the unit in place for a duration, then grants stolen loot.'>" +
+						"<interleave>" +
+							"<element name='Duration' a:help='How long the infiltration takes, in milliseconds.'>" +
+								"<ref name='nonNegativeDecimal'/>" +
+							"</element>" +
+							"<element name='ResourceType' a:help='Generic resource type granted to the infiltrator when the theft completes.'>" +
+								"<text/>" +
+							"</element>" +
+							"<element name='Amount' a:help='How much stolen loot is carried after a successful infiltration.'>" +
+								"<ref name='positiveDecimal'/>" +
+							"</element>" +
+							"<optional>" +
+								"<element name='EscapeDistance' a:help='How far from the building the infiltrator should reappear once the theft completes.'>" +
+									"<ref name='nonNegativeDecimal'/>" +
+								"</element>" +
+							"</optional>" +
+						"</interleave>" +
+					"</element>" +
+				"</optional>" +
+				"<optional>" +
 					"<element name='Projectile' a:help='Optional projectile presentation for direct damage abilities, resolving damage on impact instead of instantly.'>" +
 						"<interleave>" +
 							"<element name='Speed' a:help='Projectile speed in meters per second.'>" +
@@ -461,6 +542,7 @@ Abilities.prototype.GetTargetState = function(target)
 			"previewTemplate": target.PreviewTemplate || "",
 			"players": this.GetTokenString(target.TargetPlayers),
 			"classes": this.GetTokenString(target.Classes),
+			"classesAny": this.GetTokenString(target.ClassesAny),
 			"restrictedClasses": this.GetTokenString(target.RestrictedClasses),
 			"allowSelf": target.AllowSelf !== "false"
 	};
@@ -737,8 +819,11 @@ Abilities.prototype.ExecuteAbilityEffects = function(name, ability, targetContex
 		this.SpawnEntity(ability, targetContext);
 	this.ApplyBuff(name, ability, targetContext);
 	this.ApplyDirectDamage(name, ability, targetContext);
+	this.ApplyDirectHeal(ability, targetContext);
+	this.ApplyInfiltration(ability, targetContext);
 	this.ApplyOwnershipChange(ability, targetContext);
 	this.ApplyDestroyEntityEffect(ability, targetContext);
+	this.ApplyAreaHeal(ability, targetContext);
 	this.ApplyAreaAttack(name, ability, targetContext);
 
 	if (ability.Sound)
@@ -992,7 +1077,7 @@ Abilities.prototype.GetEntityTargetError = function(ability, target, ignoreRange
 	if (!targetPosition)
 		return "position";
 
-	if (!ignoreRange && !this.IsTargetInRange(ability.Target, targetPosition))
+	if (!ignoreRange && !this.IsEntityInRange(target, this.GetTargetRange(ability.Target)))
 		return "range";
 
 	const targetPlayers = this.GetTargetPlayers(ability.Target && ability.Target.TargetPlayers, "Player Ally Enemy MutualAlly Neutral");
@@ -1004,8 +1089,9 @@ Abilities.prototype.GetEntityTargetError = function(ability, target, ignoreRange
 	}
 
 	const requiredClasses = this.GetTokenString(ability.Target && ability.Target.Classes).split(/\s+/).filter(Boolean);
+	const requiredAnyClasses = this.GetTokenString(ability.Target && ability.Target.ClassesAny).split(/\s+/).filter(Boolean);
 	const restrictedClasses = this.GetTokenString(ability.Target && ability.Target.RestrictedClasses).split(/\s+/).filter(Boolean);
-	if (!requiredClasses.length && !restrictedClasses.length)
+	if (!requiredClasses.length && !requiredAnyClasses.length && !restrictedClasses.length)
 		return "none";
 
 	const cmpIdentity = Engine.QueryInterface(target, IID_Identity);
@@ -1013,6 +1099,9 @@ Abilities.prototype.GetEntityTargetError = function(ability, target, ignoreRange
 		return "identity";
 
 	if (!this.HasAllIdentityClasses(cmpIdentity, requiredClasses))
+		return "classes";
+
+	if (requiredAnyClasses.length && !this.HasAnyIdentityClass(cmpIdentity, requiredAnyClasses))
 		return "classes";
 
 	return this.HasAnyIdentityClass(cmpIdentity, restrictedClasses) ? "restricted-classes" : "none";
@@ -1037,6 +1126,18 @@ Abilities.prototype.CanResolvePointTarget = function(ability, position)
 Abilities.prototype.IsTargetInRange = function(target, position)
 {
 	return this.IsPointInRange(this.GetTargetRange(target), position);
+};
+
+Abilities.prototype.IsEntityInRange = function(target, range)
+{
+	if (range === undefined)
+		return true;
+
+	const cmpObstructionManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_ObstructionManager);
+	if (cmpObstructionManager)
+		return cmpObstructionManager.IsInTargetRange(this.entity, target, 0, range, false);
+
+	return this.IsPointInRange(range, this.GetEntityPosition(target));
 };
 
 Abilities.prototype.IsPointInRange = function(range, position)
@@ -1471,6 +1572,74 @@ Abilities.prototype.ApplyDirectDamage = function(name, ability, targetContext)
 		"attackData": attackData,
 		"attacker": this.entity,
 		"attackerOwner": owner
+	});
+};
+
+Abilities.prototype.ApplyDirectHeal = function(ability, targetContext)
+{
+	if (!ability.DirectHeal)
+		return;
+
+	const origin = this.GetEffectOriginContext(ability.DirectHeal, targetContext);
+	if (!origin || origin.entity === undefined)
+		return;
+
+	this.HealEntity(origin.entity, +ability.DirectHeal.Amount);
+};
+
+Abilities.prototype.ApplyAreaHeal = function(ability, targetContext)
+{
+	if (!ability.AreaHeal)
+		return;
+
+	const players = this.GetTargetPlayers(ability.AreaHeal.TargetPlayers, "Player");
+	if (!players.length)
+		return;
+
+	const origin = this.GetEffectOriginContext(ability.AreaHeal, targetContext);
+	const targets = this.GetTargetsAroundContext(origin, +ability.AreaHeal.Range, players, IID_Health);
+	if (!targets || !targets.length)
+		return;
+
+	for (const target of targets)
+	{
+		if (target == this.entity && ability.AreaHeal.IncludeSelf == "false")
+			continue;
+
+		this.HealEntity(target, +ability.AreaHeal.Amount);
+	}
+};
+
+Abilities.prototype.HealEntity = function(target, amount)
+{
+	if (!(amount > 0))
+		return false;
+
+	const cmpHealth = Engine.QueryInterface(target, IID_Health);
+	if (!cmpHealth || typeof cmpHealth.Increase != "function")
+		return false;
+
+	if (typeof cmpHealth.IsUnhealable == "function" && cmpHealth.IsUnhealable())
+		return false;
+
+	cmpHealth.Increase(amount);
+	return true;
+};
+
+Abilities.prototype.ApplyInfiltration = function(ability, targetContext)
+{
+	if (!ability.Infiltration || !targetContext || targetContext.entity === undefined)
+		return;
+
+	const cmpInfiltrator = Engine.QueryInterface(this.entity, IID_Infiltrator);
+	if (!cmpInfiltrator || typeof cmpInfiltrator.StartInfiltration != "function")
+		return;
+
+	cmpInfiltrator.StartInfiltration(targetContext.entity, {
+		"duration": +ability.Infiltration.Duration,
+		"resourceType": ability.Infiltration.ResourceType,
+		"amount": +ability.Infiltration.Amount,
+		"escapeDistance": +ability.Infiltration.EscapeDistance || 8
 	});
 };
 

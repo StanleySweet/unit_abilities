@@ -16,6 +16,7 @@
         <Origin>target</Origin>
         <Range>4</Range>
         <Duration>4000</Duration>
+        <StatusName>SnareTrap</StatusName>
         <TargetPlayers datatype="tokens">Enemy</TargetPlayers>
         <Stackability>Replace</Stackability>
         <Modifiers>

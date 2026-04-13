@@ -1,0 +1,7 @@
+{
+	"applierTooltip": "This trap snares nearby enemy units.",
+	"code": "SnareTrap",
+	"icon": "default",
+	"statusName": "Snared",
+	"receiverTooltip": "This unit is snared and slowed."
+}

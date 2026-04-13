@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="template_unit_support_female_citizen">
+  <Identity>
+    <Civ>gaia</Civ>
+    <Phenotype>male</Phenotype>
+    <SelectionGroupName>units/unit_abilities/saboteur</SelectionGroupName>
+    <GenericName>Saboteur</GenericName>
+    <SpecificName>Fur Operum</SpecificName>
+    <Icon>units/rome/support_healer.png</Icon>
+    <Classes datatype="tokens">Human Organic DemoAbilityUnit Thief</Classes>
+    <VisibleClasses datatype="tokens">Citizen Worker Demo Ability</VisibleClasses>
+  </Identity>
+  <Abilities>
+    <DefuseCharge>
+      <Action>unit-target</Action>
+      <Icon>abilities/snare_trap.png</Icon>
+      <Cooldown>6000</Cooldown>
+      <Tooltip>Disable an enemy trap or bomb before it can trigger.</Tooltip>
+      <Target>
+        <Type>Entity</Type>
+        <MaxRange>14</MaxRange>
+        <Cursor>action-defuse</Cursor>
+        <TargetPlayers datatype="tokens">Gaia Enemy</TargetPlayers>
+        <Classes datatype="tokens">Trap Bomb</Classes>
+        <AllowSelf>false</AllowSelf>
+      </Target>
+      <Animation>attack_melee</Animation>
+      <AnimationDuration>900</AnimationDuration>
+      <DestroyEntity>
+        <Origin>target</Origin>
+      </DestroyEntity>
+      <Sound>attack</Sound>
+    </DefuseCharge>
+    <InfiltrateStorehouse>
+      <Action>unit-target</Action>
+      <Icon>abilities/conversion.png</Icon>
+      <Cooldown>18000</Cooldown>
+      <Tooltip>Slip into an enemy building, stay in place for 5 seconds, then emerge with stolen loot.</Tooltip>
+      <Target>
+        <Type>Entity</Type>
+        <MaxRange>8</MaxRange>
+        <Cursor>action-infiltrate</Cursor>
+        <TargetPlayers datatype="tokens">Enemy</TargetPlayers>
+        <Classes datatype="tokens">Structure</Classes>
+        <ClassesAny datatype="tokens">CivCentre Barter DropsiteWood DropsiteStone DropsiteMetal DropsiteFood</ClassesAny>
+        <AllowSelf>false</AllowSelf>
+      </Target>
+      <Animation>attack_melee</Animation>
+      <AnimationDuration>1200</AnimationDuration>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Origin>target</Origin>
+        <Duration>1200</Duration>
+      </Particles>
+      <Infiltration>
+        <Duration>5000</Duration>
+        <ResourceType>metal</ResourceType>
+        <Amount>10</Amount>
+        <EscapeDistance>8</EscapeDistance>
+      </Infiltration>
+      <Sound>attack</Sound>
+    </InfiltrateStorehouse>
+  </Abilities>
+  <Builder disable=""/>
+  <Infiltrator/>
+  <Promotion disable=""/>
+  <VisualActor>
+    <Actor>units/romans/healer.xml</Actor>
+  </VisualActor>
+</Entity>
