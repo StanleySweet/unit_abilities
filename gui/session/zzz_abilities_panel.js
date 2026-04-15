@@ -348,12 +348,4 @@ g_SelectionPanels.Abilities = {
 	};
 }
 
-{
-	const superGetNumberOfRightPanelButtons = getNumberOfRightPanelButtons;
-	getNumberOfRightPanelButtons = function()
-	{
-		return superGetNumberOfRightPanelButtons() + (g_SelectionPanels.Abilities.used ? g_SelectionPanels.Abilities.rowLength : 0);
-	};
-}
-
-g_PanelsOrder.splice(g_PanelsOrder.indexOf("Training"), 0, "Abilities");
+g_PanelsOrder.splice(g_PanelsOrder.indexOf("Upgrade"), 0, "Abilities");

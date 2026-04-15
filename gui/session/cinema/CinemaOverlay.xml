@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<object name="cinemaOverlay">
+	<object name="cinemaOverlayBarTop" type="image" sprite="color:black" size="0 0 100% 100"/>
+	<object name="cinemaOverlayBarBottom" type="image" sprite="color:black" size="0 100%-100 100% 100%"/>
+</object>

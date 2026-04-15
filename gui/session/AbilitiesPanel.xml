@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<object name="unitAbilitiesPanel"
+	size="50%+118 100%-204 50%+380 100%-166"
+	sprite="unitAbilitiesTabPanel"
+	type="image"
+	z="21"
+>
+	<object name="unitAbilitiesContent"
+		size="6 2 100%-6 100%-2"
+	>
+		<object>
+			<repeat count="10">
+				<object name="unitAbilitiesButton[n]" hidden="true" style="iconButton" type="button" size="0 0 38 38" tooltip_style="sessionToolTipBottom">
+					<object name="unitAbilitiesIcon[n]" type="image" ghost="true" size="3 3 35 35"/>
+					<object name="unitAbilitiesCount[n]" type="text" ghost="true" style="groupIconsText" size="0 18 100%-2 100%-2" text_align="right"/>
+				</object>
+			</repeat>
+		</object>
+	</object>
+</object>
