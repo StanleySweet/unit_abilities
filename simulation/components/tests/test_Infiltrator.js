@@ -25,6 +25,16 @@ let registered = undefined;
 let unregistered = undefined;
 let targetRegenerated = 0;
 const enemyResources = { "metal": 20 };
+let addedEntities = [];
+let destroyedEntities = [];
+const originalAddEntity = Engine.AddEntity;
+const originalDestroyEntity = Engine.DestroyEntity;
+Engine.AddEntity = template =>
+{
+	addedEntities.push(template);
+	return 900 + addedEntities.length;
+};
+Engine.DestroyEntity = entity => destroyedEntities.push(entity);
 
 AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
 	"GetPlayerByID": playerID => playerID == 9 ? enemyPlayer : INVALID_ENTITY
@@ -49,6 +59,10 @@ AddMock(thief, IID_StatusBars, {
 	"RegenerateSprites": () => ++regenerated
 });
 
+AddMock(thief, IID_Ownership, {
+	"GetOwner": () => 1
+});
+
 AddMock(thief, IID_ResourceGatherer, {
 	"DropResources": () => carrying = [],
 	"GiveResources": resources => carrying = resources
@@ -67,6 +81,14 @@ AddMock(thief, IID_Position, {
 		inWorld = true;
 		jumpedTo = [x, z];
 	}
+});
+
+AddMock(901, IID_Ownership, {
+	"SetOwner": () => {}
+});
+
+AddMock(901, IID_Position, {
+	"JumpTo": () => {}
 });
 
 AddMock(target, IID_Position, {
@@ -98,6 +120,7 @@ TS_ASSERT_EQUALS(registered.target, target);
 TS_ASSERT_EQUALS(registered.source, thief);
 TS_ASSERT(regenerated > 0);
 TS_ASSERT(targetRegenerated > 0);
+TS_ASSERT_UNEVAL_EQUALS(addedEntities, ["special/unit_abilities/infiltrator_revealer"]);
 
 cmpTimer.OnUpdate({ "turnLength": 2.5 });
 TS_ASSERT(cmpInfiltrator.GetProgress() > 0);
@@ -114,6 +137,7 @@ TS_ASSERT(inWorld);
 TS_ASSERT_EQUALS(unregistered.target, target);
 TS_ASSERT_EQUALS(unregistered.source, thief);
 TS_ASSERT_UNEVAL_EQUALS(jumpedTo, [6, 10]);
+TS_ASSERT_UNEVAL_EQUALS(destroyedEntities, [901]);
 
 const scriptedThief = 404;
 const scriptedTarget = 405;
@@ -144,6 +168,10 @@ AddMock(scriptedThief, IID_StatusBars, {
 	"RegenerateSprites": () => ++scriptedRegeneration
 });
 
+AddMock(scriptedThief, IID_Ownership, {
+	"GetOwner": () => 1
+});
+
 AddMock(scriptedThief, IID_ResourceGatherer, {
 	"DropResources": () => {},
 	"GiveResources": () => {}
@@ -165,9 +193,17 @@ AddMock(scriptedThief, IID_Position, {
 	}
 });
 
+AddMock(902, IID_Ownership, {
+	"SetOwner": () => {}
+});
+
+AddMock(902, IID_Position, {
+	"JumpTo": () => {}
+});
+
 AddMock(scriptedTarget, IID_Position, {
 	"IsInWorld": () => true,
-	"GetPosition2D": () => new Vector2D(20, 20)
+	"GetPosition2D": () => new Vector2D(20, 10)
 });
 
 AddMock(scriptedTarget, IID_Ownership, {
@@ -179,7 +215,7 @@ AddMock(scriptedTarget, IID_StatusBars, {
 });
 
 AddMock(scriptedTarget, IID_InfiltrationEntrance, {
-	"GetEntryPath": () => [new Vector2D(11, 10), new Vector2D(12, 10)],
+	"GetEntryPath": () => [new Vector2D(11, 10), new Vector2D(12, 10), new Vector2D(13, 10)],
 	"GetExitPath": () => [new Vector2D(12, 10), new Vector2D(11, 10)],
 	"GetStepTime": () => 1000
 });
@@ -205,23 +241,62 @@ TS_ASSERT_EQUALS(scriptedMovedOutOfWorld, 0);
 scriptedPosition = new Vector2D(11, 10);
 cmpTimer.OnUpdate({ "turnLength": 0.3 });
 TS_ASSERT_UNEVAL_EQUALS(scriptedJumps, [[12, 10]]);
-TS_ASSERT_EQUALS(scriptedMovedOutOfWorld, 0);
-
-cmpTimer.OnUpdate({ "turnLength": 1.1 });
-TS_ASSERT_UNEVAL_EQUALS(scriptedJumps, [[12, 10]]);
 TS_ASSERT_EQUALS(scriptedMovedOutOfWorld, 1);
-TS_ASSERT_UNEVAL_EQUALS(scriptedRegistered, [scriptedTarget, scriptedThief]);
-
-cmpTimer.OnUpdate({ "turnLength": 5.1 });
-TS_ASSERT_UNEVAL_EQUALS(scriptedUnregistered, [scriptedTarget, scriptedThief]);
-TS_ASSERT_UNEVAL_EQUALS(scriptedJumps, [[12, 10], [12, 10]]);
-TS_ASSERT(!scriptedInfiltrator.IsInfiltrating());
 TS_ASSERT_UNEVAL_EQUALS(scriptedWalks, [{
 	"x": 11,
 	"z": 10,
 	"min": 0,
 	"max": 0.75,
 	"queued": false,
+	"pushFront": false
+}, {
+	"x": 12,
+	"z": 10,
+	"min": 0,
+	"max": 0.75,
+	"queued": false,
+	"pushFront": false
+}, {
+	"x": 13,
+	"z": 10,
+	"min": 0,
+	"max": 0.75,
+	"queued": true,
+	"pushFront": false
+}]);
+
+scriptedPosition = new Vector2D(13, 10);
+cmpTimer.OnUpdate({ "turnLength": 0.2 });
+TS_ASSERT_UNEVAL_EQUALS(scriptedJumps, [[12, 10]]);
+TS_ASSERT_EQUALS(scriptedMovedOutOfWorld, 1);
+TS_ASSERT_UNEVAL_EQUALS(scriptedRegistered, [scriptedTarget, scriptedThief]);
+TS_ASSERT_UNEVAL_EQUALS(addedEntities, ["special/unit_abilities/infiltrator_revealer", "special/unit_abilities/infiltrator_revealer"]);
+
+cmpTimer.OnUpdate({ "turnLength": 5.1 });
+TS_ASSERT_UNEVAL_EQUALS(scriptedUnregistered, [scriptedTarget, scriptedThief]);
+TS_ASSERT_UNEVAL_EQUALS(scriptedJumps, [[12, 10], [12, 10]]);
+TS_ASSERT(!scriptedInfiltrator.IsInfiltrating());
+TS_ASSERT_UNEVAL_EQUALS(destroyedEntities, [901, 902]);
+TS_ASSERT_UNEVAL_EQUALS(scriptedWalks, [{
+	"x": 11,
+	"z": 10,
+	"min": 0,
+	"max": 0.75,
+	"queued": false,
+	"pushFront": false
+}, {
+	"x": 12,
+	"z": 10,
+	"min": 0,
+	"max": 0.75,
+	"queued": false,
+	"pushFront": false
+}, {
+	"x": 13,
+	"z": 10,
+	"min": 0,
+	"max": 0.75,
+	"queued": true,
 	"pushFront": false
 }, {
 	"x": 11,
@@ -231,3 +306,6 @@ TS_ASSERT_UNEVAL_EQUALS(scriptedWalks, [{
 	"queued": false,
 	"pushFront": false
 }]);
+
+Engine.AddEntity = originalAddEntity;
+Engine.DestroyEntity = originalDestroyEntity;

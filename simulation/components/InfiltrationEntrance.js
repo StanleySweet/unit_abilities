@@ -12,6 +12,24 @@ InfiltrationEntrance.prototype.Schema =
 		"</element>" +
 	"</optional>" +
 	"<optional>" +
+		"<element name='ReverseEntryWaypoints' a:help='Whether the entry waypoint sequence should be traversed in reverse order.'>" +
+			"<data type='boolean'/>" +
+		"</element>" +
+	"</optional>" +
+	"<optional>" +
+		"<element name='EntryJumpAfterApproach' a:help='Which entry waypoint should be used for the obstruction-crossing jump after the infiltrator reaches the first approach point.'>" +
+			"<choice>" +
+				"<value>next</value>" +
+				"<value>last</value>" +
+			"</choice>" +
+		"</element>" +
+	"</optional>" +
+	"<optional>" +
+		"<element name='EntryInterpolationSpacing' a:help='Optional maximum spacing, in meters, used to insert extra intermediate hops along the entry path.'>" +
+			"<ref name='positiveDecimal'/>" +
+		"</element>" +
+	"</optional>" +
+	"<optional>" +
 		"<element name='ExitWaypoints' a:help='Semicolon-separated local waypoint pairs such as -4 0; -8 0; -12 0'>" +
 			"<text/>" +
 		"</element>" +
@@ -24,7 +42,16 @@ InfiltrationEntrance.prototype.GetStepTime = function()
 
 InfiltrationEntrance.prototype.GetEntryPath = function()
 {
-	return this.ResolveWaypoints(this.template.EntryWaypoints);
+	let entryPath = this.ResolveWaypoints(this.template.EntryWaypoints);
+	if (this.template.ReverseEntryWaypoints == "true")
+		entryPath = entryPath.slice().reverse();
+
+	return this.InterpolatePath(entryPath, +(this.template.EntryInterpolationSpacing || 0));
+};
+
+InfiltrationEntrance.prototype.GetEntryJumpAfterApproach = function()
+{
+	return this.template.EntryJumpAfterApproach || "next";
 };
 
 InfiltrationEntrance.prototype.GetExitPath = function()
@@ -47,6 +74,34 @@ InfiltrationEntrance.prototype.ResolveWaypoints = function(waypoints)
 
 	const origin = cmpPosition.GetPosition2D();
 	return this.ParseWaypointPairs(waypoints).map(waypoint => Vector2D.add(origin, waypoint));
+};
+
+InfiltrationEntrance.prototype.InterpolatePath = function(path, spacing)
+{
+	if (!path || path.length < 2 || !(spacing > 0))
+		return path ? path.slice() : [];
+
+	const interpolated = [path[0]];
+	for (let i = 1; i < path.length; ++i)
+	{
+		const start = path[i - 1];
+		const end = path[i];
+		const dx = end.x - start.x;
+		const dy = end.y - start.y;
+		const distance = Math.sqrt(dx * dx + dy * dy);
+		const segments = Math.max(1, Math.ceil(distance / spacing));
+
+		for (let step = 1; step <= segments; ++step)
+		{
+			const t = step / segments;
+			interpolated.push(new Vector2D(
+				start.x + dx * t,
+				start.y + dy * t
+			));
+		}
+	}
+
+	return interpolated;
 };
 
 InfiltrationEntrance.prototype.ParseWaypointPairs = function(waypoints)

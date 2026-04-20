@@ -4,6 +4,9 @@
   <group>
     <variant name="Base">
       <mesh>skeletal/new/m_naked.dae</mesh>
+      <props>
+        <prop actor="props/units/heads/new/head_hele_b.xml" attachpoint="head"/>
+      </props>
       <textures>
         <texture file="null_white.dds" name="baseTex"/>
         <texture file="default_norm.png" name="normTex"/>

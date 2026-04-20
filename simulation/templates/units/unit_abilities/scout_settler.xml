@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="template_unit_support_female_citizen">
+  <Abilities>
+    <ScoutLongueVue>
+      <Action>point-target</Action>
+      <Icon>abilities/scout_longue_vue.png</Icon>
+      <Cooldown>15000</Cooldown>
+      <Tooltip>Choose a direction to reveal terrain in a forward scouting cone until this settler moves.</Tooltip>
+      <Target>
+        <Type>Point</Type>
+        <MaxRange>60</MaxRange>
+        <Cursor>action-attack</Cursor>
+        <PreviewTemplate>special/unit_abilities/scout_target_decal</PreviewTemplate>
+        <PreviewAngleOffset>-1.57079632679</PreviewAngleOffset>
+      </Target>
+      <ScoutReveal>
+        <Template>special/unit_abilities/scout_revealer</Template>
+        <Reach>72</Reach>
+        <NearWidth>10</NearWidth>
+        <FarWidth>30</FarWidth>
+        <SegmentSpacing>8</SegmentSpacing>
+        <MoveTolerance>0.75</MoveTolerance>
+      </ScoutReveal>
+    </ScoutLongueVue>
+  </Abilities>
+  <Cost>
+    <BuildTime>10</BuildTime>
+    <Resources>
+      <food>50</food>
+      <wood>0</wood>
+      <stone>0</stone>
+      <metal>0</metal>
+    </Resources>
+  </Cost>
+  <Identity>
+    <Civ>gaia</Civ>
+    <Phenotype>male</Phenotype>
+    <GenericName>Scout Settler</GenericName>
+    <SpecificName>Example Directional Reveal Unit</SpecificName>
+    <Icon>abilities/scout_longue_vue.png</Icon>
+    <SelectionGroupName>units/unit_abilities/scout_settler</SelectionGroupName>
+    <Classes datatype="tokens">Human Support Organic DemoAbilityUnit</Classes>
+    <VisibleClasses datatype="tokens">Support Demo Ability</VisibleClasses>
+  </Identity>
+  <Builder disable=""/>
+  <ResourceGatherer disable=""/>
+  <VisualActor>
+    <Actor>units/unit_abilities/charge_bearer.xml</Actor>
+  </VisualActor>
+</Entity>

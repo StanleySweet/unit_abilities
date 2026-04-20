@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="special/actor">
+  <Footprint disable=""/>
+  <Identity>
+    <Civ>gaia</Civ>
+    <GenericName>Scout Target Decal</GenericName>
+    <Icon>abilities/scout_longue_vue.png</Icon>
+    <Classes datatype="tokens">Unit</Classes>
+    <VisibleClasses datatype="tokens">Ability</VisibleClasses>
+    <Undeletable>true</Undeletable>
+  </Identity>
+  <Position>
+    <Floating>true</Floating>
+  </Position>
+  <Visibility>
+    <AlwaysVisible>true</AlwaysVisible>
+  </Visibility>
+  <VisualActor>
+    <Actor>special/unit_abilities/scout_target_decal.xml</Actor>
+  </VisualActor>
+</Entity>

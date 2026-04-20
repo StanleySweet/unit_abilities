@@ -35,12 +35,16 @@ Engine.LoadComponentScript("interfaces/Player.js");
 Engine.LoadComponentScript("interfaces/PlayerManager.js");
 Engine.LoadComponentScript("interfaces/DelayedDamage.js");
 Engine.LoadComponentScript("interfaces/Infiltrator.js");
+Engine.LoadComponentScript("interfaces/InfiltrationEntrance.js");
+Engine.LoadComponentScript("interfaces/PetCompanion.js");
 Engine.LoadComponentScript("interfaces/SpawnedEntity.js");
 Engine.LoadComponentScript("interfaces/StatusEffectsReceiver.js");
 Engine.LoadComponentScript("interfaces/Timer.js");
 Engine.LoadComponentScript("interfaces/UnitAI.js");
+Engine.LoadComponentScript("interfaces/WaypointRecorder.js");
 Engine.LoadComponentScript("Abilities.js");
 Engine.LoadComponentScript("Timer.js");
+Engine.RegisterInterface("Mirage");
 
 const firstEntity = 101;
 const secondEntity = 102;
@@ -53,6 +57,7 @@ const queuedTargetEntity = 108;
 const allyTargetEntity = 109;
 const enemyStructureEntity = 110;
 const enemyMilitaryStructureEntity = 111;
+const enemyStructureMirageEntity = 112;
 const localEffectEntity = 301;
 const playerEntity = 1007;
 const allyPlayerEntity = 1008;
@@ -76,6 +81,8 @@ let rotatedTo = undefined;
 let effectOwner = undefined;
 let spawnedJumpedTo = undefined;
 let spawnedOwner = undefined;
+let destroyedEntities = [];
+let spawnedScoutRevealers = [];
 let resetVariantCalled = false;
 let resetAnimationCalled = false;
 let autoOrders = [];
@@ -96,6 +103,9 @@ let movedToPointRange = undefined;
 let walkedToPointRange = undefined;
 let facedTarget = undefined;
 let addedOrders = [];
+let petCommands = [];
+let recordedWaypoints = [];
+let clearedWaypointKinds = [];
 let queuedTargetPosition2D = new Vector2D(90, 90);
 let queuedTargetPosition3D = new Vector3D(90, 0, 90);
 let ownedEntities = [];
@@ -131,12 +141,40 @@ Engine.AddLocalEntity = template =>
 Engine.AddEntity = template =>
 {
 	addedEntityTemplate = template;
+	if (template == "special/unit_abilities/scout_revealer")
+	{
+		const entity = 400 + spawnedScoutRevealers.length;
+		spawnedScoutRevealers.push({
+			"entity": entity,
+			"template": template,
+			"position": undefined,
+			"owner": undefined
+		});
+		AddMock(entity, IID_Position, {
+			"JumpTo": (x, z) =>
+			{
+				const spawned = spawnedScoutRevealers.find(entry => entry.entity == entity);
+				if (spawned)
+					spawned.position = [x, z];
+			}
+		});
+		AddMock(entity, IID_Ownership, {
+			"SetOwner": newOwner =>
+			{
+				const spawned = spawnedScoutRevealers.find(entry => entry.entity == entity);
+				if (spawned)
+					spawned.owner = newOwner;
+			}
+		});
+		return entity;
+	}
 	return fifthEntity;
 };
 
 Engine.DestroyEntity = entity =>
 {
 	destroyedEntity = entity;
+	destroyedEntities.push(entity);
 };
 
 AddMock(firstEntity, IID_Sound, {
@@ -152,6 +190,27 @@ AddMock(firstEntity, IID_Infiltrator, {
 	"StartInfiltration": (target, data) =>
 	{
 		infiltrationCalls.push({ "target": target, "data": data });
+		return true;
+	}
+});
+
+AddMock(firstEntity, IID_PetCompanion, {
+	"CommandPetToPoint": (position, data) =>
+	{
+		petCommands.push({ "position": position, "data": data });
+		return true;
+	}
+});
+
+AddMock(firstEntity, IID_WaypointRecorder, {
+	"RecordWaypoint": (kind, position) =>
+	{
+		recordedWaypoints.push({ "kind": kind, "position": position });
+		return true;
+	},
+	"ClearWaypoints": kind =>
+	{
+		clearedWaypointKinds.push(kind);
 		return true;
 	}
 });
@@ -451,6 +510,10 @@ AddMock(enemyStructureEntity, IID_Identity, {
 	"HasClass": className => ["Structure", "Barter"].indexOf(className) != -1
 });
 
+AddMock(enemyStructureEntity, IID_InfiltrationEntrance, {
+	"GetEntryPath": () => [new Vector2D(18, 19)]
+});
+
 AddMock(enemyMilitaryStructureEntity, IID_Position, {
 	"IsInWorld": () => true,
 	"GetPosition": () => ({ "x": 24, "y": 0, "z": 24 }),
@@ -465,6 +528,10 @@ AddMock(enemyMilitaryStructureEntity, IID_Ownership, {
 
 AddMock(enemyMilitaryStructureEntity, IID_Identity, {
 	"HasClass": className => ["Structure", "Fortress"].indexOf(className) != -1
+});
+
+AddMock(enemyStructureMirageEntity, IID_Mirage, {
+	"GetParent": () => enemyStructureEntity
 });
 
 const firstTemplate = {
@@ -514,7 +581,6 @@ const firstTemplate = {
 		"Cooldown": "2000"
 	}
 };
-
 const cmpAbilities = ConstructComponent(firstEntity, "Abilities", firstTemplate);
 
 TS_ASSERT_UNEVAL_EQUALS(cmpAbilities.GetAbilityNames(), ["BattleCry", "SilentStep"]);
@@ -753,6 +819,8 @@ AddMock(fourthEntity, IID_Sound, {
 AddMock(fourthEntity, IID_UnitAI, {
 	"GetCurrentState": () => autoState,
 	"GetOrders": () => autoOrders,
+	"AddOrder": () => {},
+	"WalkToPointRange": () => true,
 	"FaceTowardsTarget": () => {}
 });
 
@@ -870,11 +938,13 @@ const autoTargetTemplate = {
 	}
 };
 const cmpAutoTargetAbilities = ConstructComponent(fourthEntity, "Abilities", autoTargetTemplate);
+obstructionInRange = true;
 cmpAutoTargetAbilities.AutoTriggerAbility("AutoSnare");
 TS_ASSERT_EQUALS(attackCalls[attackCalls.length - 1].target, secondEntity);
 TS_ASSERT_EQUALS(attackCalls[attackCalls.length - 1].data.type, "AutoSnare.DirectDamage");
 TS_ASSERT_EQUALS(destroyedEntity, fourthEntity);
 cmpAutoTargetAbilities.OnDestroy();
+obstructionInRange = false;
 
 const fifthTemplate = {
 	"OrderedPulse": {
@@ -903,6 +973,8 @@ TS_ASSERT_EQUALS(autoPlayedSound, "attack");
 AddMock(fifthEntity, IID_UnitAI, {
 	"GetCurrentState": () => "",
 	"GetOrders": () => [null],
+	"AddOrder": () => {},
+	"WalkToPointRange": () => true,
 	"FaceTowardsTarget": () => {}
 });
 TS_ASSERT(!cmpStatefulAutoAbilities.MatchesAutoTriggerState(fifthTemplate.OrderedPulse.AutoTrigger));
@@ -1065,9 +1137,72 @@ const targetedTemplate = {
 };
 
 const cmpTargetedAbilities = ConstructComponent(firstEntity, "Abilities", targetedTemplate);
+const scoutTemplate = {
+	"ScoutLongueVue": {
+		"Action": "point-target",
+		"Icon": "abilities/scout_longue_vue.png",
+		"Cooldown": "0",
+		"Target": {
+			"Type": "Point",
+			"MaxRange": "40",
+			"Cursor": "action-attack"
+		},
+		"ScoutReveal": {
+			"Template": "special/unit_abilities/scout_revealer",
+			"Reach": "24",
+			"NearWidth": "4",
+			"FarWidth": "12",
+			"SegmentSpacing": "6",
+			"MoveTolerance": "0.5"
+		}
+	}
+};
+const cmpScoutAbilities = ConstructComponent(firstEntity, "Abilities", scoutTemplate);
+const petCommandTemplate = {
+	"SendBuzzard": {
+		"Action": "point-target",
+		"Icon": "abilities/scout_longue_vue.png",
+		"Cooldown": "0",
+		"Target": {
+			"Type": "Point",
+			"MaxRange": "40",
+			"AutoMove": "false",
+			"Cursor": "action-attack"
+		},
+		"PetCommand": {
+			"LoiterTime": "5000"
+		}
+	}
+};
+const cmpPetCommandAbilities = ConstructComponent(firstEntity, "Abilities", petCommandTemplate);
+const waypointRecordTemplate = {
+	"RecordEntryWaypoint": {
+		"Action": "point-target",
+		"Icon": "abilities/conversion.png",
+		"Cooldown": "0",
+		"Target": {
+			"Type": "Point",
+			"MaxRange": "80"
+		},
+		"WaypointRecord": {
+			"Kind": "entry"
+		}
+	},
+	"ClearEntryWaypoints": {
+		"Action": "instant",
+		"Icon": "abilities/war_drum.png",
+		"Cooldown": "0",
+		"WaypointRecord": {
+			"Kind": "entry",
+			"Clear": "true"
+		}
+	}
+};
+const cmpWaypointAbilities = ConstructComponent(firstEntity, "Abilities", waypointRecordTemplate);
 TS_ASSERT(cmpTargetedAbilities.CanTargetPoint(targetedTemplate.DeployTrap, { "x": 18, "z": 20 }));
 TS_ASSERT(!cmpTargetedAbilities.CanTargetPoint(targetedTemplate.DeployTrap, { "x": 80, "z": 80 }));
 TS_ASSERT(!cmpTargetedAbilities.CanResolvePointTarget(targetedTemplate.DeployTrap, { "x": 18, "z": 20 }));
+obstructionInRange = true;
 TS_ASSERT(cmpTargetedAbilities.CanTargetEntity(targetedTemplate.MarkTarget, secondEntity));
 TS_ASSERT(cmpTargetedAbilities.CanTargetEntity(targetedTemplate.MarkTarget, gaiaTargetEntity));
 TS_ASSERT(!cmpTargetedAbilities.CanTargetEntity(targetedTemplate.MarkTarget, thirdEntity));
@@ -1091,13 +1226,48 @@ infiltrationCalls.length = 0;
 TS_ASSERT(cmpTargetedAbilities.TriggerAbility("InfiltrateTarget", {
 	"target": enemyStructureEntity
 }));
+TS_ASSERT(cmpTargetedAbilities.CanTargetEntity(targetedTemplate.InfiltrateTarget, enemyStructureMirageEntity));
+delete cmpTargetedAbilities.lastTriggered.InfiltrateTarget;
+TS_ASSERT(cmpTargetedAbilities.TriggerAbility("InfiltrateTarget", {
+	"target": enemyStructureMirageEntity
+}));
 TS_ASSERT(!cmpTargetedAbilities.CanTargetEntity(targetedTemplate.InfiltrateTarget, enemyMilitaryStructureEntity));
-TS_ASSERT_EQUALS(infiltrationCalls.length, 1);
+TS_ASSERT_EQUALS(infiltrationCalls.length, 2);
 TS_ASSERT_EQUALS(infiltrationCalls[0].target, enemyStructureEntity);
+TS_ASSERT_EQUALS(infiltrationCalls[1].target, enemyStructureEntity);
 TS_ASSERT_EQUALS(infiltrationCalls[0].data.duration, 5000);
 TS_ASSERT_EQUALS(infiltrationCalls[0].data.resourceType, "metal");
 TS_ASSERT_EQUALS(infiltrationCalls[0].data.amount, 10);
 TS_ASSERT_EQUALS(infiltrationCalls[0].data.escapeDistance, 8);
+obstructionInRange = false;
+walkedToPointRange = undefined;
+addedOrders = [];
+AddMock(enemyStructureMirageEntity, IID_Position, {
+	"IsInWorld": () => true,
+	"GetPosition": () => ({ "x": 20, "y": 0, "z": 20 }),
+	"GetPosition2D": () => new Vector2D(20, 20),
+	"GetPreviousPosition": () => ({ "x": 20, "y": 0, "z": 20 }),
+	"GetHeightAt": () => 0
+});
+delete cmpTargetedAbilities.lastTriggered.InfiltrateTarget;
+TS_ASSERT(cmpTargetedAbilities.TriggerAbility("InfiltrateTarget", {
+	"target": enemyStructureMirageEntity
+}));
+TS_ASSERT_EQUALS(walkedToPointRange.x, 18);
+TS_ASSERT_EQUALS(walkedToPointRange.z, 19);
+TS_ASSERT_EQUALS(addedOrders.length, 0);
+walkedToPointRange = undefined;
+addedOrders = [];
+DeleteMock(enemyStructureMirageEntity, IID_Position);
+obstructionInRange = false;
+delete cmpTargetedAbilities.lastTriggered.InfiltrateTarget;
+TS_ASSERT(cmpTargetedAbilities.TriggerAbility("InfiltrateTarget", {
+	"target": enemyStructureEntity
+}));
+TS_ASSERT_EQUALS(walkedToPointRange.x, 18);
+TS_ASSERT_EQUALS(walkedToPointRange.z, 19);
+TS_ASSERT_EQUALS(addedOrders.length, 0);
+obstructionInRange = false;
 
 ownedEntities = [201, 202, 203, 204];
 AddMock(201, IID_Identity, {
@@ -1153,6 +1323,10 @@ casterPosition2D = new Vector2D(11, 13);
 casterPosition3D = new Vector3D(11, 0, 13);
 
 const targetedAttackCount = attackCalls.length;
+jumpedTo = undefined;
+facedTarget = undefined;
+launchedProjectile = undefined;
+obstructionInRange = true;
 TS_ASSERT(cmpTargetedAbilities.TriggerAbility("MarkTarget", {
 	"target": secondEntity
 }));
@@ -1163,6 +1337,7 @@ TS_ASSERT_EQUALS(launchedProjectile.position.x, 15);
 TS_ASSERT_EQUALS(launchedProjectile.position.z, 18);
 TS_ASSERT_EQUALS(launchedProjectile.speed, 100);
 TS_ASSERT_EQUALS(launchedProjectile.gravity, 50);
+obstructionInRange = false;
 TS_ASSERT_EQUALS(delayedHitCalls.length, 0);
 cmpTimer.OnUpdate({ "turnLength": 0.1 });
 TS_ASSERT_EQUALS(attackCalls.length, targetedAttackCount + 1);
@@ -1173,6 +1348,8 @@ TS_ASSERT_EQUALS(attackCalls[targetedAttackCount].data.attackData.ApplyStatus.Ma
 TS_ASSERT_EQUALS(convertedOwner, owner);
 cmpTimer.OnUpdate({ "turnLength": 2.0 });
 const gaiaAttackCount = attackCalls.length;
+facedTarget = undefined;
+obstructionInRange = true;
 TS_ASSERT(cmpTargetedAbilities.TriggerAbility("MarkTarget", {
 	"target": gaiaTargetEntity
 }));
@@ -1182,6 +1359,7 @@ cmpTimer.OnUpdate({ "turnLength": 0.1 });
 TS_ASSERT_EQUALS(attackCalls.length, gaiaAttackCount + 1);
 TS_ASSERT_EQUALS(attackCalls[gaiaAttackCount].target, gaiaTargetEntity);
 TS_ASSERT_EQUALS(convertedOwner, owner);
+obstructionInRange = false;
 TS_ASSERT(!cmpTargetedAbilities.TriggerAbility("MarkTarget", {
 	"target": thirdEntity
 }));
@@ -1202,7 +1380,14 @@ TS_ASSERT_EQUALS(walkedToPointRange.max, 4);
 TS_ASSERT_EQUALS(movedToPointRange, undefined);
 casterPosition2D = new Vector2D(88, 88);
 casterPosition3D = new Vector3D(88, 0, 88);
-cmpTimer.OnUpdate({ "turnLength": 0.2 });
+let queuedToken = Object.keys(cmpTargetedAbilities.queuedAbilityTimers)[0];
+TS_ASSERT(queuedToken !== undefined);
+cmpTargetedAbilities.ProcessQueuedAbility({
+	"token": queuedToken,
+	"name": "DeployTrap",
+	"position": { "x": 90, "z": 90 },
+	"expires": cmpTimer.GetTime() + 15000
+}, 0);
 TS_ASSERT_EQUALS(addedEntityTemplate, "units/test_trap");
 TS_ASSERT_UNEVAL_EQUALS(spawnedJumpedTo, [90, 90]);
 casterPosition2D = new Vector2D(11, 13);
@@ -1220,20 +1405,32 @@ TS_ASSERT_EQUALS(addedOrders[0].data.target, queuedTargetEntity);
 TS_ASSERT_EQUALS(addedOrders[0].data.max, 20);
 queuedTargetPosition2D = new Vector2D(16, 17);
 queuedTargetPosition3D = new Vector3D(16, 0, 17);
-cmpTimer.OnUpdate({ "turnLength": 1.0 });
+obstructionInRange = true;
+queuedToken = Object.keys(cmpTargetedAbilities.queuedAbilityTimers)[0];
+TS_ASSERT(queuedToken !== undefined);
+cmpTargetedAbilities.ProcessQueuedAbility({
+	"token": queuedToken,
+	"name": "MarkTarget",
+	"target": queuedTargetEntity,
+	"expires": cmpTimer.GetTime() + 15000
+}, 0);
+TS_ASSERT_EQUALS(attackCalls.length, queuedAttackCount);
 cmpTimer.OnUpdate({ "turnLength": 0.1 });
 TS_ASSERT_EQUALS(attackCalls.length, queuedAttackCount + 1);
 TS_ASSERT_EQUALS(attackCalls[queuedAttackCount].target, queuedTargetEntity);
 queuedTargetPosition2D = new Vector2D(90, 90);
 queuedTargetPosition3D = new Vector3D(90, 0, 90);
+obstructionInRange = false;
 
 healCalls.length = 0;
+obstructionInRange = true;
 TS_ASSERT(cmpTargetedAbilities.TriggerAbility("RestoreTarget", {
 	"target": allyTargetEntity
 }));
 TS_ASSERT_EQUALS(facedTarget, allyTargetEntity);
 TS_ASSERT_EQUALS(healCalls.length, 1);
 TS_ASSERT_UNEVAL_EQUALS(healCalls[0], { "target": allyTargetEntity, "amount": 25 });
+obstructionInRange = false;
 
 healCalls.length = 0;
 casterPosition2D = new Vector2D(15, 17);
@@ -1294,6 +1491,7 @@ TS_ASSERT_UNEVAL_EQUALS(cmpRestrictedAbilities.GetAbilityStates(), [{
 		"range": 22,
 		"cursor": "",
 		"previewTemplate": "",
+		"previewAngleOffset": 0,
 		"players": "Gaia Enemy",
 		"classes": "Unit Organic",
 		"classesAny": "",
@@ -1301,10 +1499,12 @@ TS_ASSERT_UNEVAL_EQUALS(cmpRestrictedAbilities.GetAbilityStates(), [{
 		"allowSelf": false
 	}
 }]);
+obstructionInRange = true;
 TS_ASSERT(cmpRestrictedAbilities.CanTargetEntity(restrictedTemplate.ConvertTarget, secondEntity));
 TS_ASSERT(cmpRestrictedAbilities.CanTargetEntity(restrictedTemplate.ConvertTarget, gaiaTargetEntity));
 TS_ASSERT(!cmpRestrictedAbilities.CanTargetEntity(restrictedTemplate.ConvertTarget, restrictedTargetEntity));
 TS_ASSERT_EQUALS(cmpRestrictedAbilities.GetEntityTargetError(restrictedTemplate.ConvertTarget, restrictedTargetEntity, false), "restricted-classes");
+obstructionInRange = false;
 
 addedLocalTemplate = undefined;
 addedEntityTemplate = undefined;
@@ -1483,7 +1683,8 @@ AddMock(firstEntity, IID_Position, {
 	"IsInWorld": () => true,
 	"GetPosition": () => casterPosition3D,
 	"GetPosition2D": () => casterPosition2D,
-	"GetRotation": () => ({ "x": 0, "y": 1.25, "z": 0 })
+	"GetRotation": () => ({ "x": 0, "y": 1.25, "z": 0 }),
+	"TurnTo": y => rotatedTo = y
 });
 obstructionInRange = false;
 TS_ASSERT(!cmpTargetedAbilities.IsEntityInRange(secondEntity, 8));
@@ -1529,6 +1730,10 @@ TS_ASSERT_UNEVAL_EQUALS(cmpTargetedAbilities.SerializeTargetContext({
 	"entity": secondEntity
 });
 TS_ASSERT_EQUALS(cmpTargetedAbilities.GetEffectOriginContext({}, undefined).entity, firstEntity);
+TS_ASSERT_EQUALS(cmpScoutAbilities.GetScoutRevealTemplate(scoutTemplate.ScoutLongueVue), "special/unit_abilities/scout_revealer");
+TS_ASSERT_EQUALS(cmpScoutAbilities.GetScoutRevealMoveTolerance(scoutTemplate.ScoutLongueVue.ScoutReveal), 0.5);
+TS_ASSERT_UNEVAL_EQUALS(cmpScoutAbilities.GetScoutRevealForward(new Vector2D(0, 0), new Vector2D(0, 5)), { "x": 0, "z": 1 });
+TS_ASSERT(cmpScoutAbilities.GetScoutRevealPattern(scoutTemplate.ScoutLongueVue.ScoutReveal, new Vector2D(10, 10), new Vector2D(10, 20)).length > 1);
 
 TS_ASSERT(!cmpTargetedAbilities.IssueMoveToEntityRange(undefined, secondEntity, 10));
 TS_ASSERT(cmpTargetedAbilities.IssueMoveToEntityRange({
@@ -1587,6 +1792,60 @@ const originalAddEntity = Engine.AddEntity;
 Engine.AddEntity = () => INVALID_ENTITY;
 cmpTargetedAbilities.SpawnEntity({ "SpawnEntity": { "Template": "units/missing", "Origin": "target" } }, { "type": "point", "position": new Vector2D(3, 4) });
 Engine.AddEntity = originalAddEntity;
+
+spawnedScoutRevealers = [];
+destroyedEntities = [];
+TS_ASSERT(cmpScoutAbilities.TriggerAbility("ScoutLongueVue", {
+	"position": { "x": 11, "z": 37 }
+}));
+TS_ASSERT(spawnedScoutRevealers.length > 1);
+TS_ASSERT_EQUALS(spawnedScoutRevealers[0].template, "special/unit_abilities/scout_revealer");
+TS_ASSERT_EQUALS(spawnedScoutRevealers[0].owner, owner);
+TS_ASSERT(cmpScoutAbilities.scoutRevealMonitorTimer !== undefined);
+TS_ASSERT_EQUALS(Object.keys(cmpScoutAbilities.activeScoutReveals).length, 1);
+
+const firstScoutSpawnCount = spawnedScoutRevealers.length;
+TS_ASSERT(cmpScoutAbilities.TriggerAbility("ScoutLongueVue", {
+	"position": { "x": 20, "z": 30 }
+}));
+TS_ASSERT(destroyedEntities.length >= firstScoutSpawnCount);
+
+casterPosition2D = new Vector2D(14, 13);
+casterPosition3D = new Vector3D(14, 0, 13);
+cmpScoutAbilities.OnPositionChanged({});
+TS_ASSERT_EQUALS(Object.keys(cmpScoutAbilities.activeScoutReveals).length, 0);
+TS_ASSERT_EQUALS(cmpScoutAbilities.scoutRevealMonitorTimer, undefined);
+
+petCommands = [];
+TS_ASSERT(cmpPetCommandAbilities.TriggerAbility("SendBuzzard", {
+	"position": { "x": 19, "z": 21 }
+}));
+TS_ASSERT_EQUALS(petCommands.length, 1);
+TS_ASSERT_UNEVAL_EQUALS(petCommands[0], {
+	"position": new Vector2D(19, 21),
+	"data": {
+		"LoiterTime": "5000"
+	}
+});
+petCommands = [];
+walkedToPointRange = undefined;
+TS_ASSERT(!cmpPetCommandAbilities.TriggerAbility("SendBuzzard", {
+	"position": { "x": 90, "z": 90 }
+}));
+TS_ASSERT_EQUALS(petCommands.length, 0);
+TS_ASSERT_EQUALS(walkedToPointRange, undefined);
+recordedWaypoints = [];
+clearedWaypointKinds = [];
+rotatedTo = undefined;
+TS_ASSERT(cmpWaypointAbilities.TriggerAbility("RecordEntryWaypoint", {
+	"position": { "x": 14, "z": 16 }
+}));
+TS_ASSERT_EQUALS(recordedWaypoints.length, 1);
+TS_ASSERT_EQUALS(recordedWaypoints[0].kind, "entry");
+TS_ASSERT_UNEVAL_EQUALS(recordedWaypoints[0].position, new Vector2D(14, 16));
+TS_ASSERT_EQUALS(rotatedTo, undefined);
+TS_ASSERT(cmpWaypointAbilities.TriggerAbility("ClearEntryWaypoints"));
+TS_ASSERT_UNEVAL_EQUALS(clearedWaypointKinds, ["entry"]);
 
 TS_ASSERT_UNEVAL_EQUALS(cmpTargetedAbilities.GetTargetsAroundContext(undefined, 5, [enemy], IID_Health), []);
 DeleteMock(SYSTEM_ENTITY, IID_RangeManager);
@@ -1655,6 +1914,8 @@ TS_ASSERT_EQUALS(Object.keys(cmpTargetedAbilities.queuedAbilityTimers).length, 0
 cmpChannelAbilities.OnDestroy();
 cmpDelayedAbilities.OnDestroy();
 cmpTargetedAbilities.OnDestroy();
+cmpScoutAbilities.OnDestroy();
+cmpPetCommandAbilities.OnDestroy();
 cmpAutoAbilities.OnDestroy();
 cmpStatefulAutoAbilities.OnDestroy();
 TS_ASSERT_EQUALS(cmpTimer.timers.size, 0);

@@ -67,6 +67,19 @@ Abilities.prototype.Schema =
 								"</element>" +
 							"</optional>" +
 							"<optional>" +
+								"<element name='PreviewAngleOffset' a:help='Optional preview rotation offset in radians applied on top of the aimed point direction.'>" +
+									"<data type='decimal'/>" +
+								"</element>" +
+							"</optional>" +
+							"<optional>" +
+								"<element name='AutoMove' a:help='Whether the caster may automatically walk into range for this target when triggered out of range.'>" +
+									"<choice>" +
+										"<value>true</value>" +
+										"<value>false</value>" +
+									"</choice>" +
+								"</element>" +
+							"</optional>" +
+							"<optional>" +
 								"<element name='TargetPlayers' a:help='Optional whitespace-separated relation list such as Player Ally MutualAlly Enemy.'>" +
 									"<attribute name='datatype'>" +
 										"<value>tokens</value>" +
@@ -425,6 +438,69 @@ Abilities.prototype.Schema =
 					"</element>" +
 				"</optional>" +
 				"<optional>" +
+					"<element name='PetCommand' a:help='Optional command forwarded to the owner unit pet companion component.'>" +
+						"<interleave>" +
+							"<optional>" +
+								"<element name='LoiterTime' a:help='How long, in milliseconds, the pet should stay near the commanded point before resuming its wander.'>" +
+									"<ref name='nonNegativeDecimal'/>" +
+								"</element>" +
+							"</optional>" +
+						"</interleave>" +
+					"</element>" +
+				"</optional>" +
+				"<optional>" +
+					"<element name='WaypointRecord' a:help='Optional debug helper that records clicked waypoint offsets relative to the caster building.'>" +
+						"<interleave>" +
+							"<element name='Kind'>" +
+								"<choice>" +
+									"<value>entry</value>" +
+									"<value>exit</value>" +
+								"</choice>" +
+							"</element>" +
+							"<optional>" +
+								"<element name='Clear'>" +
+									"<choice>" +
+										"<value>true</value>" +
+										"<value>false</value>" +
+									"</choice>" +
+								"</element>" +
+							"</optional>" +
+						"</interleave>" +
+					"</element>" +
+				"</optional>" +
+				"<optional>" +
+					"<element name='ScoutReveal' a:help='Optional directional fog reveal approximated by spawned vision revealers that persist until the caster moves.'>" +
+						"<interleave>" +
+							"<element name='Template' a:help='Vision revealer template spawned to build the cone.'>" +
+								"<text/>" +
+							"</element>" +
+							"<element name='Reach' a:help='How far the reveal extends from the caster in meters.'>" +
+								"<ref name='positiveDecimal'/>" +
+							"</element>" +
+							"<optional>" +
+								"<element name='NearWidth' a:help='Approximate cone width near the caster in meters.'>" +
+									"<ref name='nonNegativeDecimal'/>" +
+								"</element>" +
+							"</optional>" +
+							"<optional>" +
+								"<element name='FarWidth' a:help='Approximate cone width near the far end in meters.'>" +
+									"<ref name='nonNegativeDecimal'/>" +
+								"</element>" +
+							"</optional>" +
+							"<optional>" +
+								"<element name='SegmentSpacing' a:help='Forward spacing between revealer rows in meters.'>" +
+									"<ref name='positiveDecimal'/>" +
+								"</element>" +
+							"</optional>" +
+							"<optional>" +
+								"<element name='MoveTolerance' a:help='How far the caster may drift before the reveal collapses, in meters.'>" +
+									"<ref name='nonNegativeDecimal'/>" +
+								"</element>" +
+							"</optional>" +
+						"</interleave>" +
+					"</element>" +
+				"</optional>" +
+				"<optional>" +
 					"<element name='AutoTrigger' a:help='Optional periodic auto-trigger configuration for passive hero abilities.'>" +
 						"<interleave>" +
 							"<element name='Interval' a:help='How often, in milliseconds, the ability should try to auto-trigger.'>" +
@@ -456,6 +532,8 @@ Abilities.prototype.Init = function()
 	this.delayedAbilityTimers = [];
 	this.queuedAbilityTimers = {};
 	this.nextQueuedAbilityToken = 1;
+	this.activeScoutReveals = {};
+	this.scoutRevealMonitorTimer = undefined;
 	this.StartAutoTriggers();
 };
 
@@ -535,11 +613,12 @@ Abilities.prototype.GetTargetState = function(target)
 		};
 
 	const targetType = this.GetNormalizedTargetType(target.Type);
-		return {
+	return {
 			"type": targetType,
 			"range": this.GetTargetRange(target) || 0,
 			"cursor": target.Cursor || "",
 			"previewTemplate": target.PreviewTemplate || "",
+			"previewAngleOffset": target.PreviewAngleOffset !== undefined ? +target.PreviewAngleOffset : 0,
 			"players": this.GetTokenString(target.TargetPlayers),
 			"classes": this.GetTokenString(target.Classes),
 			"classesAny": this.GetTokenString(target.ClassesAny),
@@ -576,23 +655,37 @@ Abilities.prototype.GetAbilityStates = function()
 Abilities.prototype.TriggerAbility = function(name, data)
 {
 	const ability = this.GetAbilityTemplate(name);
-	if (!ability || !this.CanTriggerAbility(name))
+	if (!ability)
 		return false;
+
+	if (!this.CanTriggerAbility(name))
+	{
+		this.WarnAbilityDebug(name, "blocked", "reason=cooldown-or-missing-state");
+		return false;
+	}
 
 	if (data)
 		this.CancelQueuedAbilityTimers();
 
 	const targetContext = this.ResolveTargetContext(ability, data);
 	if (!targetContext)
-		return this.TryQueueAbilityInRange(name, ability, data);
+	{
+		const queuedInRange = this.TryQueueAbilityInRange(name, ability, data);
+		this.WarnTargetedAbilityFailure(name, ability, data, queuedInRange);
+		return queuedInRange;
+	}
 
 	if (!this.CanSpawnEntity(ability))
+	{
+		this.WarnAbilityDebug(name, "blocked", "reason=spawn-limit");
 		return false;
+	}
 
 	this.lastTriggered[name] = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).GetTime();
 
 	this.PrepareDelayedAbility(ability);
-	this.FaceTowardsContext(targetContext);
+	if (this.ShouldFaceTowardsContext(ability))
+		this.FaceTowardsContext(targetContext);
 	this.TriggerAnimation(ability);
 	this.ExecuteImmediateAbilityEffects(name, ability, targetContext);
 	this.ScheduleAbilityExecution(name, ability, targetContext);
@@ -600,8 +693,41 @@ Abilities.prototype.TriggerAbility = function(name, data)
 	return true;
 };
 
+Abilities.prototype.WarnAbilityDebug = function(name, stage, details)
+{
+	return;
+};
+
+Abilities.prototype.WarnTargetedAbilityFailure = function(name, ability, data, queuedInRange)
+{
+	if (!ability || !ability.Target)
+		return;
+
+	const targetType = this.GetNormalizedTargetType(ability.Target.Type);
+	if (targetType == "entity")
+	{
+		const rawTarget = data && data.target;
+		const target = this.GetEffectiveEntityTarget(rawTarget);
+		const error = this.GetEntityTargetError(ability, target, false);
+		this.WarnAbilityDebug(name, queuedInRange ? "target-queued" : "target-failed",
+			"targetType=entity rawTarget=" + rawTarget + " target=" + target + " error=" + error +
+			" queued=" + queuedInRange);
+		return;
+	}
+
+	if (targetType == "point")
+	{
+		const position = data && data.position;
+		this.WarnAbilityDebug(name, queuedInRange ? "target-queued" : "target-failed",
+			"targetType=point hasPosition=" + !!position + " queued=" + queuedInRange);
+	}
+};
+
 Abilities.prototype.TryQueueAbilityInRange = function(name, ability, data)
 {
+	if (ability.Target && ability.Target.AutoMove == "false")
+		return false;
+
 	const cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
 	if (!cmpUnitAI)
 		return false;
@@ -609,21 +735,106 @@ Abilities.prototype.TryQueueAbilityInRange = function(name, ability, data)
 	const targetType = this.GetNormalizedTargetType(ability.Target && ability.Target.Type);
 	if (targetType == "entity" && data && data.target)
 	{
-		if (this.GetEntityTargetError(ability, data.target, false) != "range" ||
-			!this.IssueMoveToEntityRange(cmpUnitAI, data.target, this.GetTargetRange(ability.Target)))
+		const rawTarget = data.target;
+		const target = this.GetEffectiveEntityTarget(rawTarget);
+		if (this.GetEntityTargetError(ability, target, false) != "range")
+		{
+			this.WarnAbilityDebug(name, "queue-rejected",
+				"targetType=entity rawTarget=" + rawTarget + " target=" + target + " reason=not-range");
 			return false;
+		}
+
+		if (ability.Infiltration)
+		{
+			const fallbackPosition3D = this.GetEntityPosition3D(rawTarget);
+			const fallbackPosition2D = fallbackPosition3D ? new Vector2D(fallbackPosition3D.x, fallbackPosition3D.z) : undefined;
+			const approachPoint = this.GetInfiltrationApproachPoint(target, fallbackPosition2D);
+			if (!approachPoint ||
+				!this.IssueMoveToPointRange(cmpUnitAI, approachPoint.x, approachPoint.y, 0.75))
+			{
+				this.WarnAbilityDebug(name, "queue-rejected",
+					"targetType=entity rawTarget=" + rawTarget + " target=" + target + " reason=infiltration-entry-move-failed");
+				return false;
+			}
+
+			this.WarnAbilityDebug(name, "queue-approach",
+				"targetType=entity rawTarget=" + rawTarget + " target=" + target +
+				" mode=infiltration-entry x=" + approachPoint.x.toFixed(2) + " z=" + approachPoint.y.toFixed(2));
+		}
+		else if (this.IsMirageEntity(rawTarget))
+		{
+			const targetPosition3D = this.GetEntityPosition3D(rawTarget);
+			if (!targetPosition3D ||
+				!this.IssueMoveToPointRange(cmpUnitAI, targetPosition3D.x, targetPosition3D.z, this.GetTargetRange(ability.Target)))
+			{
+				this.WarnAbilityDebug(name, "queue-rejected",
+					"targetType=entity rawTarget=" + rawTarget + " target=" + target + " reason=mirage-move-failed");
+				return false;
+			}
+
+			this.WarnAbilityDebug(name, "queue-approach",
+				"targetType=entity rawTarget=" + rawTarget + " target=" + target +
+				" mode=point x=" + targetPosition3D.x.toFixed(2) + " z=" + targetPosition3D.z.toFixed(2) +
+				" range=" + this.GetTargetRange(ability.Target));
+		}
+		else if (!this.IssueMoveToEntityRange(cmpUnitAI, target, this.GetTargetRange(ability.Target)))
+		{
+			this.WarnAbilityDebug(name, "queue-rejected",
+				"targetType=entity rawTarget=" + rawTarget + " target=" + target + " reason=entity-move-failed");
+			return false;
+		}
+		else
+			this.WarnAbilityDebug(name, "queue-approach",
+				"targetType=entity rawTarget=" + rawTarget + " target=" + target +
+				" mode=entity range=" + this.GetTargetRange(ability.Target));
 
 		this.QueueAbilityRetry(name, {
-			"target": data.target
+			"target": rawTarget
 		});
 		return true;
 	}
 
 	if (targetType == "point" && data && data.position)
 	{
+		if (ability.Infiltration)
+		{
+			const infiltrationTargetContext = this.GetInfiltrationPointTargetContext(ability, data.position, true);
+			if (infiltrationTargetContext)
+			{
+				const approachPoint = this.GetInfiltrationApproachPoint(infiltrationTargetContext.entity, data.position);
+				if (approachPoint &&
+					this.IssueMoveToPointRange(
+						cmpUnitAI,
+						approachPoint.x,
+						approachPoint.y,
+						Math.max(0.75, this.GetPointResolveRange(ability.Target))))
+				{
+					this.WarnAbilityDebug(name, "queue-approach",
+						"targetType=point mode=infiltration-entry target=" + infiltrationTargetContext.entity +
+						" x=" + approachPoint.x.toFixed(2) + " z=" + approachPoint.y.toFixed(2));
+
+					this.QueueAbilityRetry(name, {
+						"position": {
+							"x": data.position.x,
+							"z": data.position.z
+						}
+					});
+					return true;
+				}
+			}
+		}
+
 		if (this.CanResolvePointTarget(ability, data.position) ||
 			!this.IssueMoveToPointRange(cmpUnitAI, data.position.x, data.position.z, this.GetPointResolveRange(ability.Target)))
+		{
+			this.WarnAbilityDebug(name, "queue-rejected",
+				"targetType=point reason=" + (this.CanResolvePointTarget(ability, data.position) ? "already-in-range" : "point-move-failed"));
 			return false;
+		}
+
+		this.WarnAbilityDebug(name, "queue-approach",
+			"targetType=point x=" + data.position.x + " z=" + data.position.z +
+			" range=" + this.GetPointResolveRange(ability.Target));
 
 		this.QueueAbilityRetry(name, {
 			"position": {
@@ -679,6 +890,10 @@ Abilities.prototype.IssueMoveToPointRange = function(cmpUnitAI, x, z, range)
 Abilities.prototype.QueueAbilityRetry = function(name, data)
 {
 	const token = String(this.nextQueuedAbilityToken++);
+	this.WarnAbilityDebug(name, "queue-retry",
+		"token=" + token +
+		(data && data.target !== undefined ? " target=" + data.target : "") +
+		(data && data.position ? " position=" + data.position.x + "," + data.position.z : ""));
 	this.queuedAbilityTimers[token] = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).SetInterval(
 		this.entity,
 		IID_Abilities,
@@ -702,6 +917,7 @@ Abilities.prototype.ProcessQueuedAbility = function(data, lateness)
 	const ability = this.GetAbilityTemplate(data.name);
 	if (!ability)
 	{
+		this.WarnAbilityDebug(data.name, "queue-cancel", "token=" + data.token + " reason=missing-ability");
 		this.CancelQueuedAbilityTimer(data.token);
 		return;
 	}
@@ -709,6 +925,7 @@ Abilities.prototype.ProcessQueuedAbility = function(data, lateness)
 	const currentTime = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).GetTime();
 	if (currentTime >= data.expires)
 	{
+		this.WarnAbilityDebug(data.name, "queue-cancel", "token=" + data.token + " reason=expired");
 		this.CancelQueuedAbilityTimer(data.token);
 		return;
 	}
@@ -720,6 +937,8 @@ Abilities.prototype.ProcessQueuedAbility = function(data, lateness)
 		const targetError = this.GetEntityTargetError(ability, data.target, true);
 		if (targetError != "none" && targetError != "range")
 		{
+			this.WarnAbilityDebug(data.name, "queue-cancel",
+				"token=" + data.token + " reason=target-error error=" + targetError + " target=" + data.target);
 			this.CancelQueuedAbilityTimer(data.token);
 			return;
 		}
@@ -730,18 +949,32 @@ Abilities.prototype.ProcessQueuedAbility = function(data, lateness)
 		targetContext = this.ResolveTargetContext(ability, { "position": data.position });
 
 	if (!targetContext)
+	{
+		this.WarnAbilityDebug(data.name, "queue-wait",
+			"token=" + data.token + " reason=still-out-of-range");
 		return;
+	}
 
 	this.CancelQueuedAbilityTimer(data.token);
+	this.WarnAbilityDebug(data.name, "queue-fire", "token=" + data.token);
 	if (!this.CanTriggerAbility(data.name))
+	{
+		this.WarnAbilityDebug(data.name, "queue-cancel", "token=" + data.token + " reason=cooldown");
 		return;
+	}
 
 	this.lastTriggered[data.name] = currentTime;
 	this.PrepareDelayedAbility(ability);
-	this.FaceTowardsContext(targetContext);
+	if (this.ShouldFaceTowardsContext(ability))
+		this.FaceTowardsContext(targetContext);
 	this.TriggerAnimation(ability);
 	this.ExecuteImmediateAbilityEffects(data.name, ability, targetContext);
 	this.ScheduleAbilityExecution(data.name, ability, targetContext);
+};
+
+Abilities.prototype.ShouldFaceTowardsContext = function(ability)
+{
+	return !ability || !ability.WaypointRecord;
 };
 
 Abilities.prototype.PrepareDelayedAbility = function(ability)
@@ -823,6 +1056,9 @@ Abilities.prototype.ExecuteAbilityEffects = function(name, ability, targetContex
 	this.ApplyInfiltration(ability, targetContext);
 	this.ApplyOwnershipChange(ability, targetContext);
 	this.ApplyDestroyEntityEffect(ability, targetContext);
+	this.ApplyPetCommand(ability, targetContext);
+	this.ApplyWaypointRecord(ability, targetContext);
+	this.ApplyScoutReveal(name, ability, targetContext);
 	this.ApplyAreaHeal(ability, targetContext);
 	this.ApplyAreaAttack(name, ability, targetContext);
 
@@ -995,7 +1231,7 @@ Abilities.prototype.ResolveTargetContext = function(ability, data)
 
 	if (targetType == "entity")
 	{
-		const target = data && data.target;
+		const target = this.GetEffectiveEntityTarget(data && data.target);
 		if (!this.CanTargetEntity(ability, target))
 			return undefined;
 
@@ -1003,6 +1239,9 @@ Abilities.prototype.ResolveTargetContext = function(ability, data)
 	}
 
 	const position = data && data.position;
+	if (ability.Infiltration)
+		return this.GetInfiltrationPointTargetContext(ability, position, false);
+
 	if (!this.CanResolvePointTarget(ability, position))
 		return undefined;
 
@@ -1015,6 +1254,26 @@ Abilities.prototype.ResolveTargetContext = function(ability, data)
 Abilities.prototype.CanTargetEntity = function(ability, target)
 {
 	return this.GetEntityTargetError(ability, target, false) == "none";
+};
+
+Abilities.prototype.GetEffectiveEntityTarget = function(target)
+{
+	if (!target)
+		return target;
+
+	const cmpMirage = typeof IID_Mirage == "undefined" ? null : Engine.QueryInterface(target, IID_Mirage);
+	if (!cmpMirage || typeof cmpMirage.GetParent != "function")
+		return target;
+
+	const parent = cmpMirage.GetParent();
+	return parent === undefined || parent == INVALID_ENTITY ? target : parent;
+};
+
+Abilities.prototype.IsMirageEntity = function(target)
+{
+	return !!target &&
+		typeof IID_Mirage != "undefined" &&
+		!!Engine.QueryInterface(target, IID_Mirage);
 };
 
 /**
@@ -1067,6 +1326,8 @@ Abilities.prototype.HasAnyIdentityClass = function(cmpIdentity, restrictedClasse
 
 Abilities.prototype.GetEntityTargetError = function(ability, target, ignoreRange)
 {
+	target = this.GetEffectiveEntityTarget(target);
+
 	if (!target)
 		return "target";
 
@@ -1121,6 +1382,70 @@ Abilities.prototype.CanResolvePointTarget = function(ability, position)
 		return false;
 
 	return this.IsPointInRange(this.GetPointResolveRange(ability.Target), this.AsVector2D(position));
+};
+
+Abilities.prototype.GetInfiltrationSearchRadius = function(ability)
+{
+	return Math.max(16, this.GetTargetRange(ability.Target) || 0);
+};
+
+Abilities.prototype.GetInfiltrationPointTargetContext = function(ability, position, ignoreRange)
+{
+	if (!ability || !ability.Infiltration || !position)
+		return undefined;
+
+	const origin = this.AsVector2D(position);
+	if (!origin)
+		return undefined;
+
+	const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
+	if (!cmpRangeManager)
+		return undefined;
+
+	const players = this.GetTargetPlayers(
+		ability.Target && ability.Target.TargetPlayers,
+		"Player Ally Enemy MutualAlly Neutral");
+	const candidates = cmpRangeManager.ExecuteQueryAroundPos(
+		origin, 0, this.GetInfiltrationSearchRadius(ability), players, IID_Identity, true);
+	if (!candidates || !candidates.length)
+		return undefined;
+
+	let best = INVALID_ENTITY;
+	let bestDistance = Infinity;
+	for (const candidate of candidates)
+	{
+		if (this.GetEntityTargetError(ability, candidate, ignoreRange) != "none")
+			continue;
+
+		const candidatePosition = this.GetEntityPosition(candidate);
+		if (!candidatePosition)
+			continue;
+
+		const distance = candidatePosition.distanceTo(origin);
+		if (distance >= bestDistance)
+			continue;
+
+		best = candidate;
+		bestDistance = distance;
+	}
+
+	return best == INVALID_ENTITY ? undefined : this.GetContextForEntity(best);
+};
+
+Abilities.prototype.GetInfiltrationApproachPoint = function(target, fallbackPosition)
+{
+	if (typeof IID_InfiltrationEntrance != "undefined")
+	{
+		const cmpInfiltrationEntrance = Engine.QueryInterface(target, IID_InfiltrationEntrance);
+		if (cmpInfiltrationEntrance)
+		{
+			const entryPath = cmpInfiltrationEntrance.GetEntryPath();
+			if (entryPath && entryPath.length)
+				return entryPath[0];
+		}
+	}
+
+	return fallbackPosition ? this.AsVector2D(fallbackPosition) : undefined;
 };
 
 Abilities.prototype.IsTargetInRange = function(target, position)
@@ -1765,6 +2090,254 @@ Abilities.prototype.DestroyEntity = function(entity)
 	Engine.DestroyEntity(entity);
 };
 
+Abilities.prototype.ApplyPetCommand = function(ability, targetContext)
+{
+	if (!ability.PetCommand || !targetContext || !targetContext.position)
+		return;
+
+	const cmpPetCompanion = Engine.QueryInterface(this.entity, IID_PetCompanion);
+	if (!cmpPetCompanion || !cmpPetCompanion.CommandPetToPoint)
+		return;
+
+	cmpPetCompanion.CommandPetToPoint(this.AsVector2D(targetContext.position), ability.PetCommand);
+};
+
+Abilities.prototype.ApplyWaypointRecord = function(ability, targetContext)
+{
+	if (!ability.WaypointRecord)
+		return;
+
+	const cmpWaypointRecorder = typeof IID_WaypointRecorder == "undefined" ? null :
+		Engine.QueryInterface(this.entity, IID_WaypointRecorder);
+	if (!cmpWaypointRecorder)
+		return;
+
+	const kind = ability.WaypointRecord.Kind || "entry";
+	if (ability.WaypointRecord.Clear == "true")
+	{
+		cmpWaypointRecorder.ClearWaypoints(kind);
+		return;
+	}
+
+	if (!targetContext || !targetContext.position)
+		return;
+
+	cmpWaypointRecorder.RecordWaypoint(kind, this.AsVector2D(targetContext.position));
+};
+
+Abilities.prototype.GetScoutRevealTemplate = function(ability)
+{
+	return ability && ability.ScoutReveal ? ability.ScoutReveal.Template : undefined;
+};
+
+Abilities.prototype.GetScoutRevealMoveTolerance = function(scoutReveal)
+{
+	if (!scoutReveal)
+		return 0;
+
+	return scoutReveal.MoveTolerance !== undefined ? +scoutReveal.MoveTolerance : 0.5;
+};
+
+Abilities.prototype.GetScoutRevealForward = function(sourcePosition, targetPosition)
+{
+	if (sourcePosition && targetPosition)
+	{
+		const dx = targetPosition.x - sourcePosition.x;
+		const dz = (targetPosition.z !== undefined ? targetPosition.z : targetPosition.y) -
+			(sourcePosition.z !== undefined ? sourcePosition.z : sourcePosition.y);
+		const length = Math.sqrt(dx * dx + dz * dz);
+		if (length > 0.001)
+			return {
+				"x": dx / length,
+				"z": dz / length
+			};
+	}
+
+	const angle = this.GetCasterRotation();
+	return {
+		"x": Math.sin(angle),
+		"z": Math.cos(angle)
+	};
+};
+
+Abilities.prototype.GetScoutRevealPattern = function(scoutReveal, sourcePosition, targetPosition)
+{
+	if (!scoutReveal || !sourcePosition)
+		return [];
+
+	const reach = +scoutReveal.Reach;
+	if (!(reach > 0))
+		return [];
+
+	const forward = this.GetScoutRevealForward(sourcePosition, targetPosition);
+	const right = {
+		"x": forward.z,
+		"z": -forward.x
+	};
+	const nearWidth = scoutReveal.NearWidth !== undefined ? +scoutReveal.NearWidth : 0;
+	const farWidth = scoutReveal.FarWidth !== undefined ? +scoutReveal.FarWidth : 16;
+	const segmentSpacing = scoutReveal.SegmentSpacing !== undefined ? +scoutReveal.SegmentSpacing : 6;
+	const positions = [];
+	const sourceZ = sourcePosition.z !== undefined ? sourcePosition.z : sourcePosition.y;
+
+	for (let distance = Math.min(segmentSpacing, reach); distance <= reach; distance += segmentSpacing)
+	{
+		const t = Math.min(1, distance / reach);
+		const width = nearWidth + (farWidth - nearWidth) * t;
+		const halfAngle = Math.atan2(width / 2, Math.max(distance, 0.001));
+		const arcCount = Math.max(1, Math.round(width / 5));
+		const ringCount = Math.max(1, arcCount | 1);
+		for (let index = 0; index < ringCount; ++index)
+		{
+			const angleOffset = ringCount == 1 ? 0 : -halfAngle + (2 * halfAngle) * index / (ringCount - 1);
+			const dirX = forward.x * Math.cos(angleOffset) + right.x * Math.sin(angleOffset);
+			const dirZ = forward.z * Math.cos(angleOffset) + right.z * Math.sin(angleOffset);
+			positions.push({
+				"x": sourcePosition.x + dirX * distance,
+				"z": sourceZ + dirZ * distance
+			});
+		}
+	}
+
+	positions.push({
+		"x": sourcePosition.x + forward.x * reach,
+		"z": sourceZ + forward.z * reach
+	});
+
+	return positions;
+};
+
+Abilities.prototype.SpawnScoutRevealers = function(templateName, positions, owner)
+{
+	const entities = [];
+	for (const position of positions)
+	{
+		const entity = Engine.AddEntity(templateName);
+		if (!entity || entity == INVALID_ENTITY)
+			continue;
+
+		const cmpPosition = Engine.QueryInterface(entity, IID_Position);
+		if (cmpPosition)
+			cmpPosition.JumpTo(position.x, position.z);
+
+		const cmpOwnership = Engine.QueryInterface(entity, IID_Ownership);
+		if (cmpOwnership)
+			cmpOwnership.SetOwner(owner);
+
+		entities.push(entity);
+	}
+	return entities;
+};
+
+Abilities.prototype.ApplyScoutReveal = function(name, ability, targetContext)
+{
+	if (!ability.ScoutReveal || !targetContext || !targetContext.position)
+		return;
+
+	const templateName = this.GetScoutRevealTemplate(ability);
+	if (!templateName)
+		return;
+
+	const sourcePosition = this.GetEntityPosition(this.entity);
+	if (!sourcePosition)
+		return;
+
+	const cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
+	const owner = cmpOwnership ? cmpOwnership.GetOwner() : INVALID_PLAYER;
+	if (owner == INVALID_PLAYER)
+		return;
+
+	const positions = this.GetScoutRevealPattern(ability.ScoutReveal, sourcePosition, targetContext.position);
+	if (!positions.length)
+		return;
+
+	this.DestroyAllScoutReveals();
+
+	const entities = this.SpawnScoutRevealers(templateName, positions, owner);
+	if (!entities.length)
+		return;
+
+	this.activeScoutReveals[name] = {
+		"anchor": {
+			"x": sourcePosition.x,
+			"z": sourcePosition.y !== undefined ? sourcePosition.y : sourcePosition.z
+		},
+		"moveTolerance": this.GetScoutRevealMoveTolerance(ability.ScoutReveal),
+		"entities": entities
+	};
+
+	this.EnsureScoutRevealMonitor();
+};
+
+Abilities.prototype.DestroyScoutReveal = function(name)
+{
+	const reveal = this.activeScoutReveals[name];
+	if (!reveal)
+		return;
+
+	for (const entity of reveal.entities)
+		Engine.DestroyEntity(entity);
+
+	delete this.activeScoutReveals[name];
+	this.CancelScoutRevealMonitorIfIdle();
+};
+
+Abilities.prototype.DestroyAllScoutReveals = function()
+{
+	for (const name in this.activeScoutReveals)
+		this.DestroyScoutReveal(name);
+};
+
+Abilities.prototype.ShouldDestroyScoutReveal = function(reveal, currentPosition)
+{
+	if (!reveal || !currentPosition)
+		return true;
+
+	const anchor = this.AsVector2D(reveal.anchor);
+	return !!anchor && currentPosition.distanceTo(anchor) > reveal.moveTolerance;
+};
+
+Abilities.prototype.CheckScoutRevealMovement = function()
+{
+	const currentPosition = this.GetEntityPosition(this.entity);
+	for (const name in this.activeScoutReveals)
+		if (this.ShouldDestroyScoutReveal(this.activeScoutReveals[name], currentPosition))
+			this.DestroyScoutReveal(name);
+};
+
+Abilities.prototype.EnsureScoutRevealMonitor = function()
+{
+	if (this.scoutRevealMonitorTimer || !Object.keys(this.activeScoutReveals).length)
+		return;
+
+	this.scoutRevealMonitorTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).SetInterval(
+		this.entity,
+		IID_Abilities,
+		"MonitorScoutRevealMovement",
+		200,
+		200,
+		null);
+};
+
+Abilities.prototype.CancelScoutRevealMonitorIfIdle = function()
+{
+	if (this.scoutRevealMonitorTimer && !Object.keys(this.activeScoutReveals).length)
+	{
+		Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).CancelTimer(this.scoutRevealMonitorTimer);
+		this.scoutRevealMonitorTimer = undefined;
+	}
+};
+
+Abilities.prototype.MonitorScoutRevealMovement = function(data, lateness)
+{
+	this.CheckScoutRevealMovement();
+};
+
+Abilities.prototype.OnPositionChanged = function(msg)
+{
+	this.CheckScoutRevealMovement();
+};
+
 Abilities.prototype.StartAutoTriggers = function()
 {
 	const cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
@@ -1896,6 +2469,8 @@ Abilities.prototype.OnDestroy = function()
 	this.CancelAutoTriggerTimers();
 	this.CancelDelayedAbilityTimers();
 	this.CancelQueuedAbilityTimers();
+	this.DestroyAllScoutReveals();
+	this.CancelScoutRevealMonitorIfIdle();
 };
 
 Engine.RegisterComponentType(IID_Abilities, "Abilities", Abilities);

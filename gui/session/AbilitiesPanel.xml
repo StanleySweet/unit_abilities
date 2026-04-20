@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <object name="unitAbilitiesPanel"
 	size="50%+118 100%-204 50%+380 100%-166"
-	sprite="unitAbilitiesTabPanel"
+	sprite="unitCommandsPanel"
 	type="image"
 	z="21"
 >

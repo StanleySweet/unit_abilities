@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="template_unit_support_female_citizen">
+  <Abilities>
+    <SendBuzzard>
+      <Action>point-target</Action>
+      <Icon>abilities/scout_longue_vue.png</Icon>
+      <Cooldown>10000</Cooldown>
+      <Tooltip>Send the buzzard to a point within range. It scouts there briefly, then resumes circling its owner.</Tooltip>
+      <Target>
+        <Type>Point</Type>
+        <MaxRange>60</MaxRange>
+        <AutoMove>false</AutoMove>
+        <Cursor>action-attack</Cursor>
+        <PreviewTemplate>special/unit_abilities/buzzard_target_decal</PreviewTemplate>
+      </Target>
+      <PetCommand>
+        <LoiterTime>6000</LoiterTime>
+      </PetCommand>
+    </SendBuzzard>
+  </Abilities>
+  <PetCompanion>
+    <Template>special/unit_abilities/buzzard_pet</Template>
+    <WanderInterval>1500</WanderInterval>
+    <WanderMinRange>0.15</WanderMinRange>
+    <WanderMaxRange>0.5</WanderMaxRange>
+    <LeashRadius>0.9</LeashRadius>
+    <DirectedRange>60</DirectedRange>
+    <DirectedLoiterTime>6000</DirectedLoiterTime>
+    <ApproachRange>0.25</ApproachRange>
+  </PetCompanion>
+  <Cost>
+    <BuildTime>10</BuildTime>
+    <Resources>
+      <food>50</food>
+      <wood>0</wood>
+      <stone>0</stone>
+      <metal>0</metal>
+    </Resources>
+  </Cost>
+  <Identity>
+    <Civ>gaia</Civ>
+    <Phenotype>male</Phenotype>
+    <GenericName>Buzzard Handler</GenericName>
+    <SpecificName>Demo Pet Companion Unit</SpecificName>
+    <Icon>abilities/scout_longue_vue.png</Icon>
+    <SelectionGroupName>units/unit_abilities/buzzard_handler</SelectionGroupName>
+    <Classes datatype="tokens">Human Support Organic DemoAbilityUnit</Classes>
+    <VisibleClasses datatype="tokens">Support Demo Ability</VisibleClasses>
+  </Identity>
+  <Builder disable=""/>
+  <ResourceGatherer disable=""/>
+  <VisualActor>
+    <Actor>units/unit_abilities/charge_bearer.xml</Actor>
+  </VisualActor>
+</Entity>

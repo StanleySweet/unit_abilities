@@ -60,11 +60,53 @@
       </Infiltration>
       <Sound>attack</Sound>
     </InfiltrateStorehouse>
+    <GroundCharge>
+      <Action>point-target</Action>
+      <Icon>abilities/ground_charge.png</Icon>
+      <Cooldown>12000</Cooldown>
+      <EffectDelay>2200</EffectDelay>
+      <Tooltip>Choose a ground position, plant an explosive charge, then detonate it after a short fuse.</Tooltip>
+      <Target>
+        <Type>Point</Type>
+        <MaxRange>24</MaxRange>
+        <Cursor>action-attack</Cursor>
+        <PreviewTemplate>special/unit_abilities/charge_marker</PreviewTemplate>
+      </Target>
+      <Animation>attack_melee</Animation>
+      <AnimationDuration>1200</AnimationDuration>
+      <SpawnEntity>
+        <Template>special/unit_abilities/charge_marker</Template>
+        <Origin>target</Origin>
+        <Owner>caster</Owner>
+        <Duration>2600</Duration>
+        <Timing>immediate</Timing>
+      </SpawnEntity>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Origin>target</Origin>
+        <Duration>1000</Duration>
+      </Particles>
+      <AreaAttack>
+        <Origin>target</Origin>
+        <Range>7</Range>
+        <TargetPlayers datatype="tokens">Gaia Enemy</TargetPlayers>
+        <Damage>
+          <Hack>18</Hack>
+          <Crush>36</Crush>
+        </Damage>
+      </AreaAttack>
+      <Sound>ability_explosion</Sound>
+    </GroundCharge>
   </Abilities>
   <Builder disable=""/>
   <Infiltrator/>
   <Promotion disable=""/>
+  <Sound>
+    <SoundGroups>
+      <ability_explosion>attack/impact/siegeprojectilehit.xml</ability_explosion>
+    </SoundGroups>
+  </Sound>
   <VisualActor>
-    <Actor>units/romans/healer.xml</Actor>
+    <Actor>units/unit_abilities/charge_bearer.xml</Actor>
   </VisualActor>
 </Entity>

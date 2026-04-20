@@ -40,13 +40,13 @@
 	<ScriptSettings><![CDATA[
 {
   "CircularMap": false,
-  "Description": "Automated infiltration repro for unit_abilities.",
+  "Description": "Demo scenario for unit_abilities, including infiltration and scout reveal.",
   "Keywords": [
     "trigger",
     "debug",
     "unit_abilities"
   ],
-  "Name": "Infiltration Repro",
+  "Name": "Unit Abilities Demo",
   "PlayerData": [
     null,
     {
@@ -69,8 +69,8 @@
       }
     }
   ],
-  "RevealMap": true,
-  "ExploredMap": true,
+  "RevealMap": false,
+  "ExploredMap": false,
   "TriggerScripts": [
     "scripts/TriggerHelper.js",
     "scenarios/infiltration_repro_triggers.js"

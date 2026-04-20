@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="special/target_marker">
+  <Identity>
+    <Civ>gaia</Civ>
+    <GenericName>Scout Marker</GenericName>
+    <Icon>abilities/scout_longue_vue.png</Icon>
+    <Classes datatype="tokens">Unit</Classes>
+    <VisibleClasses datatype="tokens">Ability</VisibleClasses>
+    <Undeletable>true</Undeletable>
+  </Identity>
+</Entity>

@@ -11,11 +11,68 @@
     <Tooltip>Demo building for scripted infiltration entry and exit paths.</Tooltip>
     <VisibleClasses datatype="tokens">Village Storehouse Demo Ability</VisibleClasses>
   </Identity>
+  <Abilities>
+    <RecordEntryWaypoint>
+      <Action>point-target</Action>
+      <Icon>abilities/conversion.png</Icon>
+      <Cooldown>0</Cooldown>
+      <Tooltip>Debug helper: click a point to append an entry waypoint relative to this building.</Tooltip>
+      <Target>
+        <Type>Point</Type>
+        <MaxRange>80</MaxRange>
+        <AutoMove>false</AutoMove>
+        <Cursor>action-infiltrate</Cursor>
+        <PreviewTemplate>special/unit_abilities/scout_target_decal</PreviewTemplate>
+      </Target>
+      <WaypointRecord>
+        <Kind>entry</Kind>
+      </WaypointRecord>
+    </RecordEntryWaypoint>
+    <RecordExitWaypoint>
+      <Action>point-target</Action>
+      <Icon>abilities/ground_charge.png</Icon>
+      <Cooldown>0</Cooldown>
+      <Tooltip>Debug helper: click a point to append an exit waypoint relative to this building.</Tooltip>
+      <Target>
+        <Type>Point</Type>
+        <MaxRange>80</MaxRange>
+        <AutoMove>false</AutoMove>
+        <Cursor>action-attack</Cursor>
+        <PreviewTemplate>special/unit_abilities/buzzard_target_decal</PreviewTemplate>
+      </Target>
+      <WaypointRecord>
+        <Kind>exit</Kind>
+      </WaypointRecord>
+    </RecordExitWaypoint>
+    <ClearEntryWaypoints>
+      <Action>instant</Action>
+      <Icon>abilities/battle_cry.png</Icon>
+      <Cooldown>0</Cooldown>
+      <Tooltip>Debug helper: clear the recorded entry waypoint sequence.</Tooltip>
+      <WaypointRecord>
+        <Kind>entry</Kind>
+        <Clear>true</Clear>
+      </WaypointRecord>
+    </ClearEntryWaypoints>
+    <ClearExitWaypoints>
+      <Action>instant</Action>
+      <Icon>abilities/war_drum.png</Icon>
+      <Cooldown>0</Cooldown>
+      <Tooltip>Debug helper: clear the recorded exit waypoint sequence.</Tooltip>
+      <WaypointRecord>
+        <Kind>exit</Kind>
+        <Clear>true</Clear>
+      </WaypointRecord>
+    </ClearExitWaypoints>
+  </Abilities>
   <InfiltrationEntrance>
-    <StepTime>700</StepTime>
-    <EntryWaypoints>-8 0; -4 0; 2 0</EntryWaypoints>
-    <ExitWaypoints>-8 0; -12 0; -16 0</ExitWaypoints>
+    <StepTime>150</StepTime>
+    <ReverseEntryWaypoints>true</ReverseEntryWaypoints>
+    <EntryJumpAfterApproach>last</EntryJumpAfterApproach>
+    <EntryWaypoints>-0.75 -1.19; 1.79 2.01; 1.96 7.5</EntryWaypoints>
+    <ExitWaypoints>-0.75 -1.19; 1.79 2.01; 1.96 7.5</ExitWaypoints>
   </InfiltrationEntrance>
+  <WaypointRecorder/>
   <Obstruction>
     <Static width="14.0" depth="13.0"/>
   </Obstruction>

@@ -1,6 +1,40 @@
 var g_AbilityTargetSelection = undefined;
 var g_AbilityPreSelectedActionPrefix = "ability:";
 
+function getAbilityPointTargetState(selection)
+{
+	const ability = getActiveAbilitySelection(selection);
+	if (!ability || !ability.target || ability.target.type != "point")
+		return undefined;
+
+	return ability.target;
+}
+
+function getFirstSelectionPosition2D(selection)
+{
+	if (!selection || !selection.length)
+		return undefined;
+
+	const casterState = GetEntityState(selection[0]);
+	if (!casterState || !casterState.position)
+		return undefined;
+
+	return Vector2D.from3D(casterState.position);
+}
+
+function isAbilityPointInRange(selection, position2D)
+{
+	const target = getAbilityPointTargetState(selection);
+	if (!target || target.range === undefined || target.range <= 0)
+		return true;
+
+	const sourcePosition = getFirstSelectionPosition2D(selection);
+	if (!sourcePosition || !position2D)
+		return false;
+
+	return sourcePosition.distanceTo(position2D) <= target.range;
+}
+
 function updateAbilityPlacementPreview()
 {
 	if (!g_AbilityTargetSelection ||
@@ -16,11 +50,29 @@ function updateAbilityPlacementPreview()
 	if (!position)
 		return;
 
+	const position2D = Vector2D.from3D(position);
+	const selection = g_Selection.toList();
+	if (!isAbilityPointInRange(selection, position2D))
+	{
+		Engine.GuiInterfaceCall("SetAbilityPlacementPreview", { "template": "" });
+		return;
+	}
+
+	let angle = 0;
+	if (selection.length)
+	{
+		const casterState = GetEntityState(selection[0]);
+		if (casterState && casterState.position)
+			angle = Vector2D.from3D(casterState.position).angleTo(position2D);
+	}
+
+	angle += g_AbilityTargetSelection.target.previewAngleOffset || 0;
+
 	Engine.GuiInterfaceCall("SetAbilityPlacementPreview", {
 		"template": g_AbilityTargetSelection.target.previewTemplate,
 		"x": position.x,
 		"z": position.z,
-		"angle": 0
+		"angle": angle
 	});
 }
 
@@ -101,6 +153,11 @@ function abilityTargetClassesMatch(targetState, classes)
 	if (!requiredClasses.length)
 		return true;
 
+	// Mirage GUI states may not carry the full identity payload.
+	// Let the simulation perform the authoritative class validation.
+	if (targetState && targetState.mirage && !targetState.identity)
+		return true;
+
 	return !!targetState && !!targetState.identity && requiredClasses.every(className =>
 		targetState.identity.classes && targetState.identity.classes.indexOf(className) != -1);
 }
@@ -112,6 +169,9 @@ function abilityTargetRestrictedClassesMatch(targetState, classes)
 
 	const restrictedClasses = classes.split(/\s+/).filter(Boolean);
 	if (!restrictedClasses.length)
+		return true;
+
+	if (targetState && targetState.mirage && !targetState.identity)
 		return true;
 
 	return !targetState || !targetState.identity || !restrictedClasses.some(className =>
@@ -170,6 +230,13 @@ function getAbilityCursor(ability, fallbackCursor)
 g_UnitActions["ability-target-point"] = {
 	"execute": function(position, action, selection, queued, pushFront)
 	{
+		const position2D = position ? Vector2D.from3D(position) : undefined;
+		if (!isAbilityPointInRange(selection, position2D))
+		{
+			Engine.GuiInterfaceCall("SetAbilityPlacementPreview", { "template": "" });
+			return true;
+		}
+
 		postAbilityCommand(action.abilityName, {
 			"position": position
 		}, selection, queued, pushFront);

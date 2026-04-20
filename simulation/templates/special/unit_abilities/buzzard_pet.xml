@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="birds/buzzard">
+  <Ownership/>
+  <SpawnedEntity/>
+  <UnitMotionFlying>
+    <MaxSpeed>5.6</MaxSpeed>
+    <TakeoffSpeed>0.6</TakeoffSpeed>
+    <LandingSpeed>1.0</LandingSpeed>
+    <AccelRate>3.0</AccelRate>
+    <SlowingRate>2.6</SlowingRate>
+    <BrakingRate>2.4</BrakingRate>
+    <TurnRate>0.8</TurnRate>
+    <OvershootTime>0.16</OvershootTime>
+    <FlyingHeight>10.0</FlyingHeight>
+    <ClimbRate>4.0</ClimbRate>
+  </UnitMotionFlying>
+  <UnitAI>
+    <RoamDistance>0.1</RoamDistance>
+    <FleeDistance>0.1</FleeDistance>
+    <RoamTimeMin>600000</RoamTimeMin>
+    <RoamTimeMax>600000</RoamTimeMax>
+    <FeedTimeMin>1</FeedTimeMin>
+    <FeedTimeMax>1</FeedTimeMax>
+  </UnitAI>
+  <Vision>
+    <Range>16</Range>
+  </Vision>
+  <VisualActor>
+    <Actor>fauna/falcon_pet.xml</Actor>
+  </VisualActor>
+</Entity>

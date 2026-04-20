@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="template_vision_revealer">
+  <Health>
+    <Max>1</Max>
+    <RegenRate>0</RegenRate>
+    <IdleRegenRate>0</IdleRegenRate>
+    <DeathType>vanish</DeathType>
+    <Unhealable>true</Unhealable>
+  </Health>
+  <Vision>
+    <Range>20</Range>
+  </Vision>
+</Entity>
