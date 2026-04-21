@@ -163,11 +163,12 @@ Infiltrator.prototype.BeginEntryPath = function()
 
 	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
 	const currentPosition = cmpPosition && cmpPosition.IsInWorld() ? cmpPosition.GetPosition2D() : undefined;
-	if (!currentPosition || currentPosition.distanceTo(firstWaypoint) <= this.pathProximity)
+	if (currentPosition && currentPosition.distanceTo(firstWaypoint) <= this.pathProximity)
 	{
-		this.DebugWarn("entry-skip-approach", "waypoint=0");
-		this.pathIndex = 0;
-		this.ContinueEntryPath();
+		this.FaceWaypoint(cmpPosition, firstWaypoint);
+		cmpPosition.JumpTo(firstWaypoint.x, firstWaypoint.y);
+		this.DebugWarn("entry-snap-boundary", "waypoint=0 x=" + firstWaypoint.x.toFixed(2) + " z=" + firstWaypoint.y.toFixed(2));
+		this.BeginInteriorEntryPath();
 		return;
 	}
 
@@ -189,18 +190,43 @@ Infiltrator.prototype.WaitForEntryWaypoint = function()
 	if (!this.active || !this.entryPath.length)
 		return;
 
+	const firstWaypoint = this.entryPath[0];
 	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
 	const currentPosition = cmpPosition && cmpPosition.IsInWorld() ? cmpPosition.GetPosition2D() : undefined;
-	if (currentPosition && currentPosition.distanceTo(this.entryPath[0]) <= this.pathProximity)
+	const distanceToWaypoint = currentPosition && firstWaypoint ? currentPosition.distanceTo(firstWaypoint) : Infinity;
+	if (currentPosition && distanceToWaypoint <= this.pathProximity)
 	{
+		this.FaceWaypoint(cmpPosition, firstWaypoint);
+		cmpPosition.JumpTo(firstWaypoint.x, firstWaypoint.y);
 		this.DebugWarn("entry-boundary-reached", "waypoint=0");
 		this.BeginInteriorEntryPath();
 		return;
 	}
 
+	const cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
+	if (cmpUnitAI &&
+		typeof cmpUnitAI.IsWalking == "function" &&
+		typeof cmpUnitAI.GetOrders == "function" &&
+		!cmpUnitAI.IsWalking() &&
+		!cmpUnitAI.GetOrders().length)
+	{
+		const snapDistance = this.pathProximity + Math.max(this.entryNudgeDistance, 0.75);
+		if (currentPosition && distanceToWaypoint <= snapDistance)
+		{
+			this.FaceWaypoint(cmpPosition, firstWaypoint);
+			cmpPosition.JumpTo(firstWaypoint.x, firstWaypoint.y);
+			this.DebugWarn("entry-boundary-snapped", "distance=" + distanceToWaypoint.toFixed(2));
+			this.BeginInteriorEntryPath();
+			return;
+		}
+
+		if (typeof cmpUnitAI.WalkToPointRange == "function")
+			cmpUnitAI.WalkToPointRange(firstWaypoint.x, firstWaypoint.y, 0, this.pathProximity, false, false);
+	}
+
 	const cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
 	if (cmpTimer)
-		this.pathTimer = cmpTimer.SetTimeout(this.entity, IID_Infiltrator, "WaitForEntryWaypoint", 200, null);
+		this.pathTimer = cmpTimer.SetTimeout(this.entity, IID_Infiltrator, "WaitForEntryWaypoint", 100, null);
 };
 
 Infiltrator.prototype.BeginInteriorEntryPath = function()

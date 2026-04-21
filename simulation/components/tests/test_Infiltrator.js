@@ -161,7 +161,9 @@ AddMock(scriptedThief, IID_UnitAI, {
 	{
 		scriptedWalks.push({ "x": x, "z": z, "min": min, "max": max, "queued": queued, "pushFront": pushFront });
 		return true;
-	}
+	},
+	"GetOrders": () => scriptedWalks.length ? [{ "type": "Walk" }] : [],
+	"IsWalking": () => !!scriptedWalks.length
 });
 
 AddMock(scriptedThief, IID_StatusBars, {
@@ -228,20 +230,7 @@ TS_ASSERT(scriptedInfiltrator.StartInfiltration(scriptedTarget, {
 	"escapeDistance": 5
 }));
 TS_ASSERT_UNEVAL_EQUALS(scriptedJumps, []);
-TS_ASSERT_UNEVAL_EQUALS(scriptedWalks, [{
-	"x": 11,
-	"z": 10,
-	"min": 0,
-	"max": 0.75,
-	"queued": false,
-	"pushFront": false
-}]);
 TS_ASSERT_EQUALS(scriptedMovedOutOfWorld, 0);
-
-scriptedPosition = new Vector2D(11, 10);
-cmpTimer.OnUpdate({ "turnLength": 0.3 });
-TS_ASSERT_UNEVAL_EQUALS(scriptedJumps, [[12, 10]]);
-TS_ASSERT_EQUALS(scriptedMovedOutOfWorld, 1);
 TS_ASSERT_UNEVAL_EQUALS(scriptedWalks, [{
 	"x": 11,
 	"z": 10,
@@ -265,16 +254,21 @@ TS_ASSERT_UNEVAL_EQUALS(scriptedWalks, [{
 	"pushFront": false
 }]);
 
+scriptedPosition = new Vector2D(11, 10);
+cmpTimer.OnUpdate({ "turnLength": 0.3 });
+TS_ASSERT_UNEVAL_EQUALS(scriptedJumps, [[11, 10], [12, 10]]);
+TS_ASSERT_EQUALS(scriptedMovedOutOfWorld, 1);
+
 scriptedPosition = new Vector2D(13, 10);
 cmpTimer.OnUpdate({ "turnLength": 0.2 });
-TS_ASSERT_UNEVAL_EQUALS(scriptedJumps, [[12, 10]]);
+TS_ASSERT_UNEVAL_EQUALS(scriptedJumps, [[11, 10], [12, 10]]);
 TS_ASSERT_EQUALS(scriptedMovedOutOfWorld, 1);
 TS_ASSERT_UNEVAL_EQUALS(scriptedRegistered, [scriptedTarget, scriptedThief]);
 TS_ASSERT_UNEVAL_EQUALS(addedEntities, ["special/unit_abilities/infiltrator_revealer", "special/unit_abilities/infiltrator_revealer"]);
 
 cmpTimer.OnUpdate({ "turnLength": 5.1 });
 TS_ASSERT_UNEVAL_EQUALS(scriptedUnregistered, [scriptedTarget, scriptedThief]);
-TS_ASSERT_UNEVAL_EQUALS(scriptedJumps, [[12, 10], [12, 10]]);
+TS_ASSERT_UNEVAL_EQUALS(scriptedJumps, [[11, 10], [12, 10], [12, 10]]);
 TS_ASSERT(!scriptedInfiltrator.IsInfiltrating());
 TS_ASSERT_UNEVAL_EQUALS(destroyedEntities, [901, 902]);
 TS_ASSERT_UNEVAL_EQUALS(scriptedWalks, [{
@@ -306,6 +300,89 @@ TS_ASSERT_UNEVAL_EQUALS(scriptedWalks, [{
 	"queued": false,
 	"pushFront": false
 }]);
+
+const stalledThief = 406;
+const stalledTarget = 407;
+let stalledPosition = new Vector2D(10, 10);
+let stalledInWorld = true;
+let stalledJumps = [];
+let stalledWalks = [];
+let stalledOrders = [];
+let stalledWalking = false;
+
+AddMock(stalledThief, IID_UnitAI, {
+	"Stop": () => {},
+	"WalkToPointRange": (x, z, min, max, queued, pushFront) =>
+	{
+		stalledWalks.push({ "x": x, "z": z, "min": min, "max": max, "queued": queued, "pushFront": pushFront });
+		stalledOrders = [{ "type": "Walk" }];
+		stalledWalking = true;
+		return true;
+	},
+	"GetOrders": () => stalledOrders,
+	"IsWalking": () => stalledWalking
+});
+
+AddMock(stalledThief, IID_StatusBars, {
+	"RegenerateSprites": () => {}
+});
+
+AddMock(stalledThief, IID_Ownership, {
+	"GetOwner": () => 1
+});
+
+AddMock(stalledThief, IID_Position, {
+	"IsInWorld": () => stalledInWorld,
+	"GetPosition2D": () => stalledPosition,
+	"MoveOutOfWorld": () => { stalledInWorld = false; },
+	"JumpTo": (x, z) =>
+	{
+		stalledPosition = new Vector2D(x, z);
+		stalledInWorld = true;
+		stalledJumps.push([x, z]);
+	}
+});
+
+AddMock(stalledTarget, IID_Position, {
+	"IsInWorld": () => true,
+	"GetPosition2D": () => new Vector2D(20, 10)
+});
+
+AddMock(stalledTarget, IID_Ownership, {
+	"GetOwner": () => 9
+});
+
+AddMock(stalledTarget, IID_StatusBars, {
+	"RegenerateSprites": () => {}
+});
+
+AddMock(stalledTarget, IID_InfiltrationEntrance, {
+	"GetEntryPath": () => [new Vector2D(11, 10), new Vector2D(12, 10), new Vector2D(13, 10)],
+	"GetExitPath": () => [new Vector2D(12, 10), new Vector2D(11, 10)],
+	"GetStepTime": () => 1000
+});
+
+const stalledInfiltrator = ConstructComponent(stalledThief, "Infiltrator");
+TS_ASSERT(stalledInfiltrator.StartInfiltration(stalledTarget, {
+	"duration": 5000,
+	"resourceType": "metal",
+	"amount": 3,
+	"escapeDistance": 5
+}));
+TS_ASSERT_UNEVAL_EQUALS(stalledWalks, [{
+	"x": 11,
+	"z": 10,
+	"min": 0,
+	"max": 0.75,
+	"queued": false,
+	"pushFront": false
+}]);
+
+stalledPosition = new Vector2D(9.8, 10);
+stalledOrders = [];
+stalledWalking = false;
+cmpTimer.OnUpdate({ "turnLength": 0.2 });
+TS_ASSERT_UNEVAL_EQUALS(stalledJumps, [[11, 10], [12, 10]]);
 
 Engine.AddEntity = originalAddEntity;
 Engine.DestroyEntity = originalDestroyEntity;

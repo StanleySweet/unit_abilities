@@ -45,6 +45,8 @@ Engine.LoadComponentScript("interfaces/WaypointRecorder.js");
 Engine.LoadComponentScript("Abilities.js");
 Engine.LoadComponentScript("Timer.js");
 Engine.RegisterInterface("Mirage");
+if (typeof IID_Footprint == "undefined")
+	Engine.RegisterInterface("Footprint");
 
 const firstEntity = 101;
 const secondEntity = 102;
@@ -499,7 +501,8 @@ AddMock(enemyStructureEntity, IID_Position, {
 	"GetPosition": () => ({ "x": 20, "y": 0, "z": 20 }),
 	"GetPosition2D": () => new Vector2D(20, 20),
 	"GetPreviousPosition": () => ({ "x": 20, "y": 0, "z": 20 }),
-	"GetHeightAt": () => 0
+	"GetHeightAt": () => 0,
+	"GetRotation": () => ({ "y": 0 })
 });
 
 AddMock(enemyStructureEntity, IID_Ownership, {
@@ -511,7 +514,11 @@ AddMock(enemyStructureEntity, IID_Identity, {
 });
 
 AddMock(enemyStructureEntity, IID_InfiltrationEntrance, {
-	"GetEntryPath": () => [new Vector2D(18, 19)]
+	"GetEntryPath": () => [new Vector2D(18, 10)]
+});
+
+AddMock(enemyStructureEntity, IID_Footprint, {
+	"GetShape": () => ({ "type": "square", "width": 14, "depth": 13, "height": 8 })
 });
 
 AddMock(enemyMilitaryStructureEntity, IID_Position, {
@@ -1254,7 +1261,8 @@ TS_ASSERT(cmpTargetedAbilities.TriggerAbility("InfiltrateTarget", {
 	"target": enemyStructureMirageEntity
 }));
 TS_ASSERT_EQUALS(walkedToPointRange.x, 18);
-TS_ASSERT_EQUALS(walkedToPointRange.z, 19);
+TS_ASSERT_EQUALS(walkedToPointRange.z, 13.5);
+TS_ASSERT_EQUALS(walkedToPointRange.max, 1);
 TS_ASSERT_EQUALS(addedOrders.length, 0);
 walkedToPointRange = undefined;
 addedOrders = [];
@@ -1265,8 +1273,45 @@ TS_ASSERT(cmpTargetedAbilities.TriggerAbility("InfiltrateTarget", {
 	"target": enemyStructureEntity
 }));
 TS_ASSERT_EQUALS(walkedToPointRange.x, 18);
-TS_ASSERT_EQUALS(walkedToPointRange.z, 19);
+TS_ASSERT_EQUALS(walkedToPointRange.z, 13.5);
+TS_ASSERT_EQUALS(walkedToPointRange.max, 1);
 TS_ASSERT_EQUALS(addedOrders.length, 0);
+queuedToken = Object.keys(cmpTargetedAbilities.queuedAbilityTimers)[0];
+TS_ASSERT(queuedToken !== undefined);
+cmpTargetedAbilities.ProcessQueuedAbility({
+	"token": queuedToken,
+	"name": "InfiltrateTarget",
+	"target": enemyStructureEntity,
+	"expires": undefined
+}, 0);
+TS_ASSERT_EQUALS(Object.keys(cmpTargetedAbilities.queuedAbilityTimers).length, 1);
+cmpTargetedAbilities.CancelQueuedAbilityTimers();
+obstructionInRange = false;
+
+infiltrationCalls.length = 0;
+walkedToPointRange = undefined;
+AddMock(enemyStructureMirageEntity, IID_Position, {
+	"IsInWorld": () => true,
+	"GetPosition": () => ({ "x": 20, "y": 0, "z": 20 }),
+	"GetPosition2D": () => new Vector2D(20, 20),
+	"GetPreviousPosition": () => ({ "x": 20, "y": 0, "z": 20 }),
+	"GetHeightAt": () => 0
+});
+TS_ASSERT(cmpTargetedAbilities.TriggerAbility("InfiltrateTarget", {
+	"target": enemyStructureMirageEntity
+}));
+queuedToken = Object.keys(cmpTargetedAbilities.queuedAbilityTimers)[0];
+DeleteMock(enemyStructureMirageEntity, IID_Position);
+obstructionInRange = true;
+cmpTargetedAbilities.ProcessQueuedAbility({
+	"token": queuedToken,
+	"name": "InfiltrateTarget",
+	"target": enemyStructureMirageEntity,
+	"resolvedTarget": enemyStructureEntity,
+	"expires": undefined
+}, 0);
+TS_ASSERT_EQUALS(infiltrationCalls.length, 1);
+TS_ASSERT_EQUALS(infiltrationCalls[0].target, enemyStructureEntity);
 obstructionInRange = false;
 
 ownedEntities = [201, 202, 203, 204];

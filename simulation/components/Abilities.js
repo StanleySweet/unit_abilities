@@ -750,7 +750,7 @@ Abilities.prototype.TryQueueAbilityInRange = function(name, ability, data)
 			const fallbackPosition2D = fallbackPosition3D ? new Vector2D(fallbackPosition3D.x, fallbackPosition3D.z) : undefined;
 			const approachPoint = this.GetInfiltrationApproachPoint(target, fallbackPosition2D);
 			if (!approachPoint ||
-				!this.IssueMoveToPointRange(cmpUnitAI, approachPoint.x, approachPoint.y, 0.75))
+				!this.IssueMoveToPointRange(cmpUnitAI, approachPoint.x, approachPoint.y, 1))
 			{
 				this.WarnAbilityDebug(name, "queue-rejected",
 					"targetType=entity rawTarget=" + rawTarget + " target=" + target + " reason=infiltration-entry-move-failed");
@@ -789,7 +789,9 @@ Abilities.prototype.TryQueueAbilityInRange = function(name, ability, data)
 				" mode=entity range=" + this.GetTargetRange(ability.Target));
 
 		this.QueueAbilityRetry(name, {
-			"target": rawTarget
+			"target": rawTarget,
+			"resolvedTarget": target,
+			"noExpiry": !!ability.Infiltration
 		});
 		return true;
 	}
@@ -807,7 +809,7 @@ Abilities.prototype.TryQueueAbilityInRange = function(name, ability, data)
 						cmpUnitAI,
 						approachPoint.x,
 						approachPoint.y,
-						Math.max(0.75, this.GetPointResolveRange(ability.Target))))
+						1))
 				{
 					this.WarnAbilityDebug(name, "queue-approach",
 						"targetType=point mode=infiltration-entry target=" + infiltrationTargetContext.entity +
@@ -817,7 +819,8 @@ Abilities.prototype.TryQueueAbilityInRange = function(name, ability, data)
 						"position": {
 							"x": data.position.x,
 							"z": data.position.z
-						}
+						},
+						"noExpiry": true
 					});
 					return true;
 				}
@@ -904,8 +907,10 @@ Abilities.prototype.QueueAbilityRetry = function(name, data)
 			"token": token,
 			"name": name,
 			"target": data && data.target,
+			"resolvedTarget": data && data.resolvedTarget,
 			"position": data && data.position,
-			"expires": Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).GetTime() + 15000
+			"expires": data && data.noExpiry ? undefined :
+				Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).GetTime() + 15000
 		});
 };
 
@@ -923,7 +928,7 @@ Abilities.prototype.ProcessQueuedAbility = function(data, lateness)
 	}
 
 	const currentTime = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).GetTime();
-	if (currentTime >= data.expires)
+	if (data.expires !== undefined && currentTime >= data.expires)
 	{
 		this.WarnAbilityDebug(data.name, "queue-cancel", "token=" + data.token + " reason=expired");
 		this.CancelQueuedAbilityTimer(data.token);
@@ -934,16 +939,17 @@ Abilities.prototype.ProcessQueuedAbility = function(data, lateness)
 	let targetContext = undefined;
 	if (targetType == "entity")
 	{
-		const targetError = this.GetEntityTargetError(ability, data.target, true);
+		const retryTarget = data.resolvedTarget || data.target;
+		const targetError = this.GetEntityTargetError(ability, retryTarget, true);
 		if (targetError != "none" && targetError != "range")
 		{
 			this.WarnAbilityDebug(data.name, "queue-cancel",
-				"token=" + data.token + " reason=target-error error=" + targetError + " target=" + data.target);
+				"token=" + data.token + " reason=target-error error=" + targetError + " target=" + retryTarget);
 			this.CancelQueuedAbilityTimer(data.token);
 			return;
 		}
 
-		targetContext = this.ResolveTargetContext(ability, { "target": data.target });
+		targetContext = this.ResolveTargetContext(ability, { "target": retryTarget });
 	}
 	else if (targetType == "point")
 		targetContext = this.ResolveTargetContext(ability, { "position": data.position });
@@ -1434,6 +1440,8 @@ Abilities.prototype.GetInfiltrationPointTargetContext = function(ability, positi
 
 Abilities.prototype.GetInfiltrationApproachPoint = function(target, fallbackPosition)
 {
+	let referencePoint = fallbackPosition ? this.AsVector2D(fallbackPosition) : this.GetEntityPosition(this.entity);
+
 	if (typeof IID_InfiltrationEntrance != "undefined")
 	{
 		const cmpInfiltrationEntrance = Engine.QueryInterface(target, IID_InfiltrationEntrance);
@@ -1441,11 +1449,68 @@ Abilities.prototype.GetInfiltrationApproachPoint = function(target, fallbackPosi
 		{
 			const entryPath = cmpInfiltrationEntrance.GetEntryPath();
 			if (entryPath && entryPath.length)
-				return entryPath[0];
+				referencePoint = entryPath[0];
 		}
 	}
 
-	return fallbackPosition ? this.AsVector2D(fallbackPosition) : undefined;
+	return this.GetClosestFootprintEdgePoint(target, referencePoint) || referencePoint;
+};
+
+Abilities.prototype.GetClosestFootprintEdgePoint = function(target, referencePoint)
+{
+	if (typeof IID_Footprint == "undefined" || !referencePoint)
+		return undefined;
+
+	const cmpFootprint = Engine.QueryInterface(target, IID_Footprint);
+	if (!cmpFootprint || typeof cmpFootprint.GetShape != "function")
+		return undefined;
+
+	const shape = cmpFootprint.GetShape();
+	const center = this.GetEntityPosition(target);
+	if (!shape || !center)
+		return undefined;
+
+	const cmpPosition = Engine.QueryInterface(target, IID_Position);
+	const rotation = cmpPosition && typeof cmpPosition.GetRotation == "function" ? cmpPosition.GetRotation().y : 0;
+	const localReference = Vector2D.sub(this.AsVector2D(referencePoint), center).rotate(-rotation);
+
+	let localEdge = undefined;
+	if (shape.type == "circle" && shape.radius > 0)
+	{
+		const direction = localReference.length() > 0.001 ? localReference.normalize() : new Vector2D(0, 1);
+		localEdge = direction.mult(+shape.radius);
+	}
+	else if (shape.type == "square" && shape.width > 0 && shape.depth > 0)
+		localEdge = this.GetClosestSquareEdgePoint(localReference, +shape.width / 2, +shape.depth / 2);
+
+	if (!localEdge)
+		return undefined;
+
+	return Vector2D.add(center, new Vector2D(localEdge.x, localEdge.y).rotate(rotation));
+};
+
+Abilities.prototype.GetClosestSquareEdgePoint = function(point, halfWidth, halfDepth)
+{
+	if (!(halfWidth > 0) || !(halfDepth > 0))
+		return undefined;
+
+	const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+	const clamped = new Vector2D(
+		clamp(point.x, -halfWidth, halfWidth),
+		clamp(point.y, -halfDepth, halfDepth)
+	);
+	const inside = Math.abs(point.x) < halfWidth && Math.abs(point.y) < halfDepth;
+	if (!inside)
+		return clamped;
+
+	const dx = halfWidth - Math.abs(point.x);
+	const dy = halfDepth - Math.abs(point.y);
+	if (dx <= dy)
+		clamped.x = (Math.sign(point.x) || 1) * halfWidth;
+	else
+		clamped.y = (Math.sign(point.y) || 1) * halfDepth;
+
+	return clamped;
 };
 
 Abilities.prototype.IsTargetInRange = function(target, position)

@@ -27,6 +27,10 @@ function QuickSpawn(x, z, template, owner)
 	if (cmpPosition)
 		cmpPosition.JumpTo(x, z);
 
+	const cmpUnitAI = Engine.QueryInterface(ent, IID_UnitAI);
+	if (cmpUnitAI && typeof cmpUnitAI.SwitchToStance == "function")
+		cmpUnitAI.SwitchToStance("passive");
+
 	return ent;
 }
 

@@ -207,6 +207,11 @@ function abilityEntityTargetMatches(target, selection)
 	if (!ability.target.allowSelf && selection.indexOf(target) != -1)
 		return false;
 
+	// Mirage entity states are often incomplete in the session layer.
+	// Let the simulation validate player/class/range against the resolved parent.
+	if (targetState.mirage)
+		return true;
+
 	if (!abilityTargetPlayersMatch(selectionState, targetState, ability.target.players))
 		return false;
 
