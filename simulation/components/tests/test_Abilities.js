@@ -1942,6 +1942,17 @@ TS_ASSERT(cmpTargetedAbilities.HealEntity(allyTargetEntity, 5));
 TS_ASSERT(!cmpTargetedAbilities.HealEntity(thirdEntity, 5));
 TS_ASSERT(!cmpTargetedAbilities.HealEntity(allyTargetEntity, 0));
 
+// The engine range query excludes the caster: IncludeSelf must add it explicitly.
+AddMock(SYSTEM_ENTITY, IID_RangeManager, {
+	"ExecuteQuery": () => [secondEntity]
+});
+statusCalls = [];
+cmpTargetedAbilities.ApplyBuff("SelfBuff", { "Buff": { "Range": "0", "Duration": "1000", "IncludeSelf": "true", "Modifiers": {} } });
+TS_ASSERT_UNEVAL_EQUALS(statusCalls.map(call => call.target), [secondEntity, firstEntity]);
+statusCalls = [];
+cmpTargetedAbilities.ApplyBuff("SelfBuff", { "Buff": { "Range": "0", "Duration": "1000", "IncludeSelf": "false", "Modifiers": {} } });
+TS_ASSERT_UNEVAL_EQUALS(statusCalls.map(call => call.target), [secondEntity]);
+
 cmpTargetedAbilities.animationResetTimer = 12345;
 cmpTargetedAbilities.autoTriggerTimers = [11, 12];
 cmpTargetedAbilities.delayedAbilityTimers = [21, 22];

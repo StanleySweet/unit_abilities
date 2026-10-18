@@ -1827,15 +1827,18 @@ Abilities.prototype.ApplyBuff = function(name, ability, targetContext)
 	if (!players.length)
 		return;
 
+	const cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
+	const owner = cmpOwnership ? cmpOwnership.GetOwner() : INVALID_PLAYER;
 	const origin = this.GetEffectOriginContext(ability.Buff, targetContext);
-	const targets = this.GetTargetsAroundContext(origin, +ability.Buff.Range, players, IID_StatusEffectsReceiver);
-	if (!targets || !targets.length)
+	const targets = (this.GetTargetsAroundContext(origin, +ability.Buff.Range, players, IID_StatusEffectsReceiver) || []).slice();
+	// Range queries never return their source entity, so add the caster explicitly.
+	if (ability.Buff.IncludeSelf != "false" && origin && origin.entity == this.entity && players.indexOf(owner) != -1 && targets.indexOf(this.entity) == -1)
+		targets.push(this.entity);
+	if (!targets.length)
 		return;
 
 	const statusName = this.GetBuffStatusName(name, ability.Buff);
 	const statusData = this.GetBuffStatusData(ability.Buff);
-	const cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
-	const owner = cmpOwnership ? cmpOwnership.GetOwner() : INVALID_PLAYER;
 
 	for (const target of targets)
 	{
@@ -1987,8 +1990,13 @@ Abilities.prototype.ApplyAreaHeal = function(ability, targetContext)
 		return;
 
 	const origin = this.GetEffectOriginContext(ability.AreaHeal, targetContext);
-	const targets = this.GetTargetsAroundContext(origin, +ability.AreaHeal.Range, players, IID_Health);
-	if (!targets || !targets.length)
+	const targets = (this.GetTargetsAroundContext(origin, +ability.AreaHeal.Range, players, IID_Health) || []).slice();
+	const cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
+	const owner = cmpOwnership ? cmpOwnership.GetOwner() : INVALID_PLAYER;
+	// Range queries never return their source entity, so add the caster explicitly.
+	if (ability.AreaHeal.IncludeSelf != "false" && origin && origin.entity == this.entity && players.indexOf(owner) != -1 && targets.indexOf(this.entity) == -1)
+		targets.push(this.entity);
+	if (!targets.length)
 		return;
 
 	for (const target of targets)

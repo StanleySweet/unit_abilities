@@ -1,0 +1,7 @@
+{
+	"applierTooltip": "Aura of War raises this unit's armor and damage.",
+	"code": "AuraOfWarBuff",
+	"icon": "aura_of_war_buff",
+	"statusName": "Aura of War",
+	"receiverTooltip": "This unit is empowered by Aura of War."
+}

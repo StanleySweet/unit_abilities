@@ -32,6 +32,39 @@
       </AreaAttack>
       <Sound>attack</Sound>
     </CircularAttack>
+    <AuraOfWar>
+      <Action>instant</Action>
+      <Icon>abilities/aura_of_war.png</Icon>
+      <Cooldown>60000</Cooldown>
+      <Tooltip>Temporarily increases this unit's armor and damage.</Tooltip>
+      <AnimationVariant>combat</AnimationVariant>
+      <AnimationDuration>1000</AnimationDuration>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Duration>1500</Duration>
+      </Particles>
+      <Buff>
+        <Range>0</Range>
+        <Duration>15000</Duration>
+        <StatusName>AuraOfWarBuff</StatusName>
+        <TargetPlayers datatype="tokens">Player</TargetPlayers>
+        <IncludeSelf>true</IncludeSelf>
+        <Stackability>Replace</Stackability>
+        <Modifiers>
+          <AuraOfWarDamage>
+            <Paths datatype="tokens">Attack/Melee/Damage/Hack</Paths>
+            <Affects datatype="tokens">Unit</Affects>
+            <Multiply>1.5</Multiply>
+          </AuraOfWarDamage>
+          <AuraOfWarArmor>
+            <Paths datatype="tokens">Resistance/Entity/Damage/Hack Resistance/Entity/Damage/Pierce</Paths>
+            <Affects datatype="tokens">Unit</Affects>
+            <Add>3</Add>
+          </AuraOfWarArmor>
+        </Modifiers>
+      </Buff>
+      <Sound>attack</Sound>
+    </AuraOfWar>
   </Abilities>
   <Health>
     <Max>250</Max>
