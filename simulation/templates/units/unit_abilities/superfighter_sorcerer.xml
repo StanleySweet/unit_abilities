@@ -10,6 +10,38 @@
     <Classes datatype="tokens">Human CitizenSoldier Organic DemoAbilityUnit Superfighter</Classes>
     <VisibleClasses datatype="tokens">Soldier Infantry Demo Ability</VisibleClasses>
   </Identity>
+  <Abilities>
+    <LightningStrike>
+      <Action>point-target</Action>
+      <Icon>abilities/lightning_strike.png</Icon>
+      <Cooldown>40000</Cooldown>
+      <EffectDelay>800</EffectDelay>
+      <Tooltip>Call lightning on a ground position, heavily damaging enemies at the impact point.</Tooltip>
+      <Target>
+        <Type>Point</Type>
+        <MaxRange>40</MaxRange>
+        <Cursor>action-attack</Cursor>
+        <PreviewTemplate>special/unit_abilities/charge_marker</PreviewTemplate>
+      </Target>
+      <Animation>attack_melee</Animation>
+      <AnimationDuration>1000</AnimationDuration>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Origin>target</Origin>
+        <Duration>1200</Duration>
+      </Particles>
+      <AreaAttack>
+        <Origin>target</Origin>
+        <Range>6</Range>
+        <TargetPlayers datatype="tokens">Gaia Enemy</TargetPlayers>
+        <Damage>
+          <Fire>60</Fire>
+          <Crush>20</Crush>
+        </Damage>
+      </AreaAttack>
+      <Sound>attack</Sound>
+    </LightningStrike>
+  </Abilities>
   <Health>
     <Max>250</Max>
     <RegenRate>4</RegenRate>
