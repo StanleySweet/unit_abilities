@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+<defs>
+<linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#555a5f"/><stop offset="1" stop-color="#1e2227"/></linearGradient>
+<linearGradient id="face" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#83a5e2"/><stop offset="1" stop-color="#4068af"/></linearGradient>
+<linearGradient id="accent" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f8fafc"/><stop offset="1" stop-color="#f4f7fb"/></linearGradient>
+<filter id="material" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+  <feMorphology in="SourceAlpha" operator="dilate" radius="1" result="thick"/>
+  <feFlood flood-color="#0a0806"/><feComposite in2="thick" operator="in" result="outline"/>
+  <feGaussianBlur in="thick" stdDeviation="1.4"/><feOffset dx="0.8" dy="1.6"/>
+  <feComponentTransfer result="shadow"><feFuncA type="linear" slope="0.8"/></feComponentTransfer>
+  <feMerge><feMergeNode in="shadow"/><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge>
+</filter>
+<radialGradient id="ground" cx="0.5" cy="0.42" r="0.72"><stop offset="0" stop-color="#343f4f"/><stop offset="1" stop-color="#11151a"/></radialGradient>
+<linearGradient id="rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9b2a2"/><stop offset="0.5" stop-color="#6c665a"/><stop offset="1" stop-color="#2c2924"/></linearGradient>
+</defs>
+<rect x="2" y="2" width="124" height="124" rx="6" fill="url(#rim)"/>
+<rect x="5" y="5" width="118" height="118" rx="4" fill="url(#ground)" stroke="#0a0806" stroke-width="2"/>
+<g filter="url(#material)"><g transform="translate(8.09 9.40) scale(0.8736)">
+<defs><g id="tower"><path d="M-15 -42 Q0 -48 15 -42 V38 Q0 46 -15 38 Z" fill="url(#face)"/>
+<rect x="-2.5" y="-40" width="5" height="78" fill="url(#accent)"/><circle r="6" fill="url(#accent)"/></g></defs>
+<use href="#tower" transform="translate(40 66) rotate(-10) scale(0.88)"/>
+<use href="#tower" transform="translate(88 66) rotate(10) scale(0.88)"/>
+<use href="#tower" transform="translate(64 64)"/></g></g>
+</svg>

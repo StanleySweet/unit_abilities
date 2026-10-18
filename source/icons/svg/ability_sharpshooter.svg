@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+<defs>
+<linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7b4a46"/><stop offset="1" stop-color="#3e1410"/></linearGradient>
+<linearGradient id="face" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f5d9c7"/><stop offset="1" stop-color="#c6a490"/></linearGradient>
+<linearGradient id="accent" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe4a6"/><stop offset="1" stop-color="#ffd36b"/></linearGradient>
+<filter id="material" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+  <feMorphology in="SourceAlpha" operator="dilate" radius="1" result="thick"/>
+  <feFlood flood-color="#0a0806"/><feComposite in2="thick" operator="in" result="outline"/>
+  <feGaussianBlur in="thick" stdDeviation="1.4"/><feOffset dx="0.8" dy="1.6"/>
+  <feComponentTransfer result="shadow"><feFuncA type="linear" slope="0.8"/></feComponentTransfer>
+  <feMerge><feMergeNode in="shadow"/><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge>
+</filter>
+<radialGradient id="ground" cx="0.5" cy="0.42" r="0.72"><stop offset="0" stop-color="#6d2620"/><stop offset="1" stop-color="#240c0a"/></radialGradient>
+<linearGradient id="rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9b2a2"/><stop offset="0.5" stop-color="#6c665a"/><stop offset="1" stop-color="#2c2924"/></linearGradient>
+</defs>
+<rect x="2" y="2" width="124" height="124" rx="6" fill="url(#rim)"/>
+<rect x="5" y="5" width="118" height="118" rx="4" fill="url(#ground)" stroke="#0a0806" stroke-width="2"/>
+<g filter="url(#material)"><g transform="translate(8.21 16.30) scale(0.8085)">
+<circle cx="60" cy="68" r="38" fill="url(#face)"/><circle cx="60" cy="68" r="26" fill="url(#body)"/>
+<circle cx="60" cy="68" r="14" fill="url(#face)"/><circle cx="60" cy="68" r="5" fill="url(#body)"/>
+<path d="M60 68 L104 24" stroke="url(#body)" stroke-width="6" stroke-linecap="round"/>
+<path d="M100 16 L116 12 L112 28 L107 22 Z M94 22 L110 18 L106 34 L101 28 Z" fill="url(#accent)"/></g></g>
+</svg>

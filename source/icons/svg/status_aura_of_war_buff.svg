@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+<defs>
+<linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a4473f"/><stop offset="1" stop-color="#63120b"/></linearGradient>
+<linearGradient id="face" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4a164"/><stop offset="1" stop-color="#c4641b"/></linearGradient>
+<linearGradient id="accent" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6cf"/><stop offset="1" stop-color="#fff1b0"/></linearGradient>
+<filter id="material" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+  <feMorphology in="SourceAlpha" operator="dilate" radius="1" result="thick"/>
+  <feFlood flood-color="#0a0806"/><feComposite in2="thick" operator="in" result="outline"/>
+  <feGaussianBlur in="thick" stdDeviation="1.4"/><feOffset dx="0.8" dy="1.6"/>
+  <feComponentTransfer result="shadow"><feFuncA type="linear" slope="0.8"/></feComponentTransfer>
+  <feMerge><feMergeNode in="shadow"/><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge>
+</filter>
+</defs>
+<g filter="url(#material)"><g transform="translate(7.86 8.83) scale(0.8621)">
+<path d="M60 6 C64 26 82 34 90 50 C94 40 92 30 88 24 C104 38 114 58 112 80 C110 106 90 122 64 122 C38 122 18 106 18 82 C18 62 30 50 38 42 C38 54 42 62 48 66 C46 46 50 24 60 6 Z" fill="url(#body)"/>
+<path d="M64 34 C66 50 80 58 84 74 C86 66 86 60 84 56 C94 66 98 80 96 92 C94 108 80 116 64 116 C48 116 34 106 34 90 C34 76 42 68 48 62 C48 72 52 78 56 80 C54 64 56 48 64 34 Z" fill="url(#face)"/>
+<path d="M64 64 C66 76 76 82 78 94 C80 106 72 112 64 112 C56 112 48 106 50 94 C51 86 56 82 58 78 C60 84 62 86 64 86 C62 78 62 70 64 64 Z" fill="url(#accent)"/></g></g>
+</svg>

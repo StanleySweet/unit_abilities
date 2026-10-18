@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+<defs>
+<linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6e5c3f"/><stop offset="1" stop-color="#33240b"/></linearGradient>
+<linearGradient id="face" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6e6b2"/><stop offset="1" stop-color="#c7b477"/></linearGradient>
+<linearGradient id="accent" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff7db"/><stop offset="1" stop-color="#fff3c4"/></linearGradient>
+<filter id="material" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+  <feMorphology in="SourceAlpha" operator="dilate" radius="1" result="thick"/>
+  <feFlood flood-color="#0a0806"/><feComposite in2="thick" operator="in" result="outline"/>
+  <feGaussianBlur in="thick" stdDeviation="1.4"/><feOffset dx="0.8" dy="1.6"/>
+  <feComponentTransfer result="shadow"><feFuncA type="linear" slope="0.8"/></feComponentTransfer>
+  <feMerge><feMergeNode in="shadow"/><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge>
+</filter>
+<radialGradient id="ground" cx="0.5" cy="0.42" r="0.72"><stop offset="0" stop-color="#6d561e"/><stop offset="1" stop-color="#241c0a"/></radialGradient>
+<linearGradient id="rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9b2a2"/><stop offset="0.5" stop-color="#6c665a"/><stop offset="1" stop-color="#2c2924"/></linearGradient>
+</defs>
+<rect x="2" y="2" width="124" height="124" rx="6" fill="url(#rim)"/>
+<rect x="5" y="5" width="118" height="118" rx="4" fill="url(#ground)" stroke="#0a0806" stroke-width="2"/>
+<g filter="url(#material)"><g transform="translate(10.11 16.11) scale(0.8421)">
+<path d="M34 70 V96 C34 104 94 104 94 96 V70 Z" fill="url(#body)"/>
+<ellipse cx="64" cy="70" rx="30" ry="10" fill="url(#face)"/>
+<g fill="none" stroke="url(#accent)" stroke-width="7" stroke-linecap="round">
+  <path d="M40 46 A30 30 0 0 1 88 46"/><path d="M26 34 A48 48 0 0 1 102 34"/>
+</g></g></g>
+</svg>

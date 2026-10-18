@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+<defs>
+<linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#41594c"/><stop offset="1" stop-color="#0c2116"/></linearGradient>
+<linearGradient id="face" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d2f3d5"/><stop offset="1" stop-color="#9cc3a0"/></linearGradient>
+<linearGradient id="accent" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7ffc4"/><stop offset="1" stop-color="#f2ff9e"/></linearGradient>
+<filter id="material" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+  <feMorphology in="SourceAlpha" operator="dilate" radius="1" result="thick"/>
+  <feFlood flood-color="#0a0806"/><feComposite in2="thick" operator="in" result="outline"/>
+  <feGaussianBlur in="thick" stdDeviation="1.4"/><feOffset dx="0.8" dy="1.6"/>
+  <feComponentTransfer result="shadow"><feFuncA type="linear" slope="0.8"/></feComponentTransfer>
+  <feMerge><feMergeNode in="shadow"/><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge>
+</filter>
+<radialGradient id="ground" cx="0.5" cy="0.42" r="0.72"><stop offset="0" stop-color="#244932"/><stop offset="1" stop-color="#0c1810"/></radialGradient>
+<linearGradient id="rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9b2a2"/><stop offset="0.5" stop-color="#6c665a"/><stop offset="1" stop-color="#2c2924"/></linearGradient>
+</defs>
+<rect x="2" y="2" width="124" height="124" rx="6" fill="url(#rim)"/>
+<rect x="5" y="5" width="118" height="118" rx="4" fill="url(#ground)" stroke="#0a0806" stroke-width="2"/>
+<g filter="url(#material)"><g transform="translate(15.36 14.60) scale(0.7600)">
+<g fill="url(#face)">
+  <path d="M30 92 C18 72 22 44 48 26 L54 32 C34 48 32 72 40 92 Z"/>
+  <path d="M98 92 C110 72 106 44 80 26 L74 32 C94 48 96 72 88 92 Z"/>
+  <path d="M30 74 L41 77 L32 83 Z"/><path d="M98 74 L87 77 L96 83 Z"/><path d="M30 60 L41 63 L32 69 Z"/><path d="M98 60 L87 63 L96 69 Z"/><path d="M34 47 L45 50 L36 56 Z"/><path d="M94 47 L83 50 L92 56 Z"/><path d="M42 36 L53 39 L44 45 Z"/><path d="M86 36 L75 39 L84 45 Z"/>
+</g>
+<rect x="14" y="90" width="100" height="14" rx="4" fill="url(#face)"/>
+<circle cx="34" cy="96" r="7" fill="url(#body)"/><circle cx="94" cy="96" r="7" fill="url(#body)"/></g></g>
+</svg>
