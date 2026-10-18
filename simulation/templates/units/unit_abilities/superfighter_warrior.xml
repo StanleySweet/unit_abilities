@@ -10,6 +10,29 @@
     <Classes datatype="tokens">Human CitizenSoldier Organic DemoAbilityUnit Superfighter</Classes>
     <VisibleClasses datatype="tokens">Soldier Infantry Demo Ability</VisibleClasses>
   </Identity>
+  <Abilities>
+    <CircularAttack>
+      <Action>instant</Action>
+      <Icon>abilities/circular_attack.png</Icon>
+      <Cooldown>50000</Cooldown>
+      <Tooltip>Spin attack that damages all enemies close to the caster.</Tooltip>
+      <Animation>attack_melee</Animation>
+      <AnimationVariant>combat</AnimationVariant>
+      <AnimationDuration>1200</AnimationDuration>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Duration>1200</Duration>
+      </Particles>
+      <AreaAttack>
+        <Range>8</Range>
+        <TargetPlayers datatype="tokens">Gaia Enemy</TargetPlayers>
+        <Damage>
+          <Hack>40</Hack>
+        </Damage>
+      </AreaAttack>
+      <Sound>attack</Sound>
+    </CircularAttack>
+  </Abilities>
   <Health>
     <Max>250</Max>
     <RegenRate>2</RegenRate>
