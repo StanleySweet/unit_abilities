@@ -5,8 +5,20 @@ Glyphs only describe shapes; the generator owns colour, lighting, framing and pl
 so every icon comes out with the same look. Regenerate with:
 
 ```sh
-python3 source/icons/generate.py   # needs rsvg-convert and ImageMagick (magick)
+python3 source/icons/generate.py            # default theme: rts
+python3 source/icons/generate.py material   # flat alternative
+# needs rsvg-convert and ImageMagick (magick)
 ```
+
+## Themes
+
+| Theme | Look |
+|---|---|
+| `rts` (default) | RTS command card: thin metal rim, dark vignette ground, top-lit gradient silhouettes, thin dark outline, tight shadow, no gloss |
+| `material` | Flat: solid token colours, flat rounded-square ground, soft elevation shadow, no outline |
+
+A theme only changes paints, the frame and the material filter. Glyphs, safe boxes and
+placement are shared, so switching theme never needs glyph edits.
 
 ## Canvas
 
@@ -18,7 +30,7 @@ python3 source/icons/generate.py   # needs rsvg-convert and ImageMagick (magick)
 
 | Kind | Frame | Safe box (max glyph side) |
 |---|---|---|
-| Ability | Dark stone bevel, tinted vignette ground | 76 units, centred |
+| Ability | Theme frame (metal rim + vignette for `rts`, flat rounded square for `material`) | 76 units, centred |
 | Status effect | None (transparent), like vanilla `burning.png` / `poisoned.png` | 100 units, centred |
 
 The generator renders each glyph on its own, measures its real bounds, and scales and
@@ -35,19 +47,18 @@ Glyphs use exactly three paints, never raw colours, gradients or filters:
 | `F` face | Main light surface; most of the glyph |
 | `A` accent | Small highlights: sparks, flame core, boss strips, sound waves |
 
-Each hue in `HUES` defines `(ground, body, face, accent)`. The generator turns body, face
-and accent into top-lit vertical gradients. Status-only hues (`fire`, `holy`, `shield`,
+Each hue in `HUES` defines `(ground, body, face, accent)`. With `rts` the generator turns
+body, face and accent into top-lit vertical gradients; with `material` they stay flat. Status-only hues (`fire`, `holy`, `shield`,
 `poison`) have no ground because status icons have no frame.
 
-## Material (same for every icon)
+## Material (same for every icon of a theme)
 
 One SVG filter, `material`, applied to the placed glyph:
 
-1. Soft bevel: specular light from the top-left (azimuth 235°, elevation 50°).
-2. Dark outline: 1.3-unit dilation in `#0d0a06`.
-3. Drop shadow: offset (1.2, 2.6), blur 2, 65% opacity.
+- `rts`: 1-unit dark outline (`#0a0806`) and a tight shadow (offset 0.8, 1.6; blur 1.4; 80%).
+- `material`: soft elevation shadow only (offset 0, 2.5; blur 2.2; 35%).
 
-Do not add per-glyph outlines, shadows or highlights; the material provides them.
+Do not add per-glyph outlines, shadows, highlights or gloss; the material provides them.
 
 ## Drawing rules
 
@@ -56,6 +67,10 @@ Do not add per-glyph outlines, shadows or highlights; the material provides them
 - Reuse 0 A.D. vocabulary where it exists (tower shields for defence, flame for burning,
   green drop for poison).
 - Strokes, when needed, at least 4 units before fitting.
+- Prefer symmetric compositions on the vertical axis when the subject allows (e.g. the
+  upright sword in `aura_of_war`); asymmetric subjects must still look centred.
+- Attach details to the main silhouette (spikes, teeth); floating fragments break up under
+  the outline filter.
 - A glyph may be shared by an ability and a status icon (e.g. `war_horn`), with different
   hues.
 
@@ -63,5 +78,4 @@ Do not add per-glyph outlines, shadows or highlights; the material provides them
 
 1. Add a glyph to `GLYPHS` using only `B`, `F`, `A`.
 2. Add a row to `ICONS`: file name, kind (`ability` or `status`), glyph, hue.
-3. Run the generator and check the result at 128 and 32 px
-   (`.claude/skills/icon-critique/scripts/render_icon.py <svg> --sizes 128,32`).
+3. Run the generator and check the result at 128 and 32 px.

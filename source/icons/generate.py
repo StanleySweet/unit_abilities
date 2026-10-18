@@ -8,6 +8,7 @@ Usage: python3 source/icons/generate.py   (from the mod root; needs rsvg-convert
 """
 import os
 import subprocess
+import sys
 import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -48,9 +49,12 @@ GLYPHS = {
 <g fill="{F}"><use href="#blade"/><use href="#blade" transform="rotate(120 64 64)"/><use href="#blade" transform="rotate(240 64 64)"/></g>
 <circle cx="64" cy="64" r="11" fill="{B}"/>""",
     "berserk_strike": f"""
-<path d="M30 104 L62 72" stroke="{B}" stroke-width="13" stroke-linecap="round"/>
-<path d="M56 78 L48 70 L76 34 C82 28 90 30 96 36 C102 42 102 50 96 54 Z" fill="{F}"/>
-<g fill="{B}"><path d="M78 30 L82 20 L88 32 Z"/><path d="M98 52 L108 48 L98 42 Z"/><path d="M64 46 L54 42 L66 40 Z"/><path d="M80 62 L84 72 L74 64 Z"/></g>""",
+<g transform="rotate(38 64 64)">
+  <rect x="58" y="70" width="12" height="50" rx="4" fill="{B}"/>
+  <path d="M56 76 C50 52 44 32 52 18 C58 8 70 8 76 18 C84 32 78 52 72 76 Z" fill="{F}"/>
+  <g fill="{F}"><path d="M50 36 L40 32 L48 46 Z"/><path d="M52 58 L44 60 L54 66 Z"/><path d="M78 36 L88 32 L80 46 Z"/><path d="M76 58 L84 60 L74 66 Z"/><path d="M58 12 L64 2 L70 12 Z"/></g>
+  <rect x="55" y="74" width="18" height="6" rx="2" fill="{A}"/>
+</g>""",
     "shuriken": f"""
 <path d="M64 18 L74 54 L110 64 L74 74 L64 110 L54 74 L18 64 L54 54 Z" fill="{F}"/>
 <circle cx="64" cy="64" r="9" fill="{B}"/>""",
@@ -86,9 +90,13 @@ GLYPHS = {
 <circle cx="34" cy="96" r="7" fill="{B}"/><circle cx="94" cy="96" r="7" fill="{B}"/>""",
     # ---------------------------------------------------------------- defence / support
     "aura_of_war": f"""
-<path d="M64 20 L100 33 V60 C100 84 84 100 64 108 C44 100 28 84 28 60 V33 Z" fill="{B}"/>
-<path d="M47 62 L64 47 L81 62 V73 L64 58 L47 73 Z" fill="{F}"/>
-<path d="M50 82 L64 70 L78 82 V91 L64 79 L50 91 Z" fill="{F}"/>""",
+<defs><path id="ray" d="M60 40 L64 6 L68 40 Z"/></defs>
+<g fill="{A}">""" + "".join(f'<use href="#ray" transform="rotate({a} 64 64)"/>' for a in range(0, 360, 30)) + f"""</g>
+<circle cx="64" cy="64" r="30" fill="{B}"/>
+<path d="M64 22 L71 32 V80 H57 V32 Z" fill="{F}"/>
+<rect x="46" y="78" width="36" height="7" rx="3" fill="{F}"/>
+<rect x="60" y="85" width="8" height="16" rx="2" fill="{F}"/>
+<circle cx="64" cy="104" r="5" fill="{F}"/>""",
     "bless": f"""
 <ellipse cx="64" cy="32" rx="26" ry="9" fill="none" stroke="{A}" stroke-width="7"/>
 <path d="M64 48 L92 58 V76 C92 92 80 102 64 108 C48 102 36 92 36 76 V58 Z" fill="{B}"/>
@@ -211,8 +219,11 @@ def shade(hex_color, factor):
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
-def token_defs(hue):
+def token_defs(hue, theme):
     _, body, face, accent = HUES[hue]
+    if theme == "material":
+        return "\n".join(f'<linearGradient id="{gid}"><stop offset="0" stop-color="{c}"/></linearGradient>'
+                         for gid, c in (("body", body), ("face", face), ("accent", accent)))
 
     def vgrad(gid, top, bottom):
         return (f'<linearGradient id="{gid}" x1="0" y1="0" x2="0" y2="1">'
@@ -225,27 +236,33 @@ def token_defs(hue):
     ])
 
 
-# One material for every glyph: soft bevel highlight, dark outline, drop shadow.
-MATERIAL = """<filter id="material" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
-  <feGaussianBlur in="SourceAlpha" stdDeviation="1.6" result="blur"/>
-  <feSpecularLighting in="blur" surfaceScale="3" specularConstant="0.55" specularExponent="16" lighting-color="#ffffff" result="spec">
-    <feDistantLight azimuth="235" elevation="50"/>
-  </feSpecularLighting>
-  <feComposite in="spec" in2="SourceAlpha" operator="in" result="specIn"/>
-  <feComposite in="SourceGraphic" in2="specIn" operator="arithmetic" k2="1" k3="0.8" result="lit"/>
-  <feMorphology in="SourceAlpha" operator="dilate" radius="1.3" result="thick"/>
-  <feFlood flood-color="#0d0a06"/><feComposite in2="thick" operator="in" result="outline"/>
-  <feGaussianBlur in="thick" stdDeviation="2"/><feOffset dx="1.2" dy="2.6"/>
-  <feComponentTransfer result="shadow"><feFuncA type="linear" slope="0.65"/></feComponentTransfer>
-  <feMerge><feMergeNode in="shadow"/><feMergeNode in="outline"/><feMergeNode in="lit"/></feMerge>
-</filter>"""
+# One material per theme, applied to every glyph.
+MATERIALS = {
+    # flat colours, soft elevation shadow, no outline or highlight
+    "material": """<filter id="material" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+  <feGaussianBlur in="SourceAlpha" stdDeviation="2.2"/><feOffset dy="2.5"/>
+  <feComponentTransfer result="shadow"><feFuncA type="linear" slope="0.35"/></feComponentTransfer>
+  <feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge>
+</filter>""",
+    # RTS command card: gradient silhouette, thin dark outline, tight shadow, no gloss
+    "rts": """<filter id="material" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+  <feMorphology in="SourceAlpha" operator="dilate" radius="1" result="thick"/>
+  <feFlood flood-color="#0a0806"/><feComposite in2="thick" operator="in" result="outline"/>
+  <feGaussianBlur in="thick" stdDeviation="1.4"/><feOffset dx="0.8" dy="1.6"/>
+  <feComponentTransfer result="shadow"><feFuncA type="linear" slope="0.8"/></feComponentTransfer>
+  <feMerge><feMergeNode in="shadow"/><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge>
+</filter>""",
+}
 
-FRAME = """<radialGradient id="ground" cx="0.5" cy="0.4" r="0.75"><stop offset="0" stop-color="{g1}"/><stop offset="1" stop-color="{g2}"/></radialGradient>
-<linearGradient id="rim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a8f96"/><stop offset="0.45" stop-color="#3b3f45"/><stop offset="1" stop-color="#16181b"/></linearGradient>"""
-FRAME_SHAPES = """<rect x="1" y="1" width="126" height="126" rx="14" fill="url(#rim)"/>
-<rect x="3.5" y="3.5" width="121" height="121" rx="12" fill="none" stroke="#0b0c0e" stroke-width="1.5"/>
-<rect x="8" y="8" width="112" height="112" rx="9" fill="url(#ground)" stroke="#0b0c0e" stroke-width="2"/>"""
-
+FRAMES = {
+    "material": ("""<linearGradient id="ground"><stop offset="0" stop-color="{g1}"/></linearGradient>""",
+                 """<rect x="4" y="4" width="120" height="120" rx="18" fill="url(#ground)"/>"""),
+    "rts": ("""<radialGradient id="ground" cx="0.5" cy="0.42" r="0.72"><stop offset="0" stop-color="{g1}"/><stop offset="1" stop-color="{g2}"/></radialGradient>
+<linearGradient id="rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9b2a2"/><stop offset="0.5" stop-color="#6c665a"/><stop offset="1" stop-color="#2c2924"/></linearGradient>""",
+            """<rect x="2" y="2" width="124" height="124" rx="6" fill="url(#rim)"/>
+<rect x="5" y="5" width="118" height="118" rx="4" fill="url(#ground)" stroke="#0a0806" stroke-width="2"/>"""),
+}
+THEME = "rts"  # default; "material" is the flat alternative
 
 def document(defs, body):
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{SIZE}" height="{SIZE}" viewBox="0 0 128 128">
@@ -257,13 +274,13 @@ def document(defs, body):
 """
 
 
-def measure(glyph_svg, hue):
+def measure(glyph_svg, hue, theme):
     """Render the bare glyph and return its alpha bounding box (x, y, w, h) in canvas units."""
     scale = 4
     with tempfile.TemporaryDirectory() as td:
         src, png = os.path.join(td, "g.svg"), os.path.join(td, "g.png")
         with open(src, "w") as f:
-            f.write(document(token_defs(hue), glyph_svg))
+            f.write(document(token_defs(hue, theme), glyph_svg))
         subprocess.run(["rsvg-convert", "-w", str(SIZE * scale), "-h", str(SIZE * scale), "-o", png, src], check=True)
         geom = subprocess.run(["magick", png, "-alpha", "extract", "-threshold", "10%", "-format", "%@", "info:"],
                               check=True, capture_output=True, text=True).stdout.strip()
@@ -272,30 +289,31 @@ def measure(glyph_svg, hue):
     return tuple(int(v) / scale for v in (x, y, w, h))
 
 
-def build(kind, glyph, hue):
-    x, y, w, h = measure(GLYPHS[glyph], hue)
+def build(kind, glyph, hue, theme):
+    x, y, w, h = measure(GLYPHS[glyph], hue, theme)
     k = SAFE[kind] / max(w, h)
     tx = CENTRE[0] - (x + w / 2) * k
     ty = CENTRE[1] - (y + h / 2) * k
     placed = f'<g filter="url(#material)"><g transform="translate({tx:.2f} {ty:.2f}) scale({k:.4f})">{GLYPHS[glyph]}</g></g>'
-    defs = token_defs(hue) + "\n" + MATERIAL
+    defs = token_defs(hue, theme) + "\n" + MATERIALS[theme]
     if kind == "ability":
         ground = HUES[hue][0]
-        defs += "\n" + FRAME.format(g1=ground, g2=shade(ground, 0.35))
-        return document(defs, FRAME_SHAPES + "\n" + placed)
+        frame_defs, frame_shapes = FRAMES[theme]
+        defs += "\n" + frame_defs.format(g1=shade(ground, 0.9), g2=shade(ground, 0.3))
+        return document(defs, frame_shapes + "\n" + placed)
     return document(defs, placed)
 
 
-def main():
+def main(theme=THEME):
     os.makedirs(SVG_DIR, exist_ok=True)
     for name, kind, glyph, hue in ICONS:
         src = os.path.join(SVG_DIR, f"{kind}_{name}.svg")
         with open(src, "w") as f:
-            f.write(build(kind, glyph, hue))
+            f.write(build(kind, glyph, hue, theme))
         dst = os.path.join(OUT[kind], f"{name}.png")
         subprocess.run(["rsvg-convert", "-w", str(SIZE), "-h", str(SIZE), "-o", dst, src], check=True)
         print(dst)
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1] if len(sys.argv) > 1 else THEME)
