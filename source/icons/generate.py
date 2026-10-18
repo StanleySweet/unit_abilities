@@ -1,9 +1,14 @@
-"""Generate Superfighter ability/status icons as SVG, then render 128x128 PNGs with rsvg-convert.
+"""Generate the mod's ability and status icons from one design system (see DESIGN.md).
 
-Usage: python3 source/icons/generate.py   (from the mod root)
+Glyphs only draw shapes with three tokens: B (body), F (face), A (accent).
+The generator owns everything else: colours, frame, lighting, outline, shadow
+and placement (each glyph is measured and auto-fitted into the safe box).
+
+Usage: python3 source/icons/generate.py   (from the mod root; needs rsvg-convert and magick)
 """
 import os
 import subprocess
+import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SVG_DIR = os.path.join(ROOT, "source", "icons", "svg")
@@ -13,113 +18,280 @@ OUT = {
 }
 SIZE = 128  # power of two, matches existing icons
 
-# (background, dark, light) per icon, same flat two-tone look as war_drum.png / snare_trap.png
-PALETTES = {
-    "gold": ("#e2b95a", "#24456b", "#f6e3a1"),
-    "red": ("#b8453a", "#3a1512", "#f2c4a8"),
-    "blue": ("#3f6fa8", "#152a44", "#cfe3f7"),
-    "violet": ("#6b4fa0", "#21163a", "#e3d6ff"),
-    "green": ("#2f5a3c", "#0f2417", "#9fe0a8"),
-    "steel": ("#5d6670", "#1d2227", "#dfe5ea"),
-    "brown": ("#7a5534", "#2a1a0c", "#f0d2a6"),
-    "teal": ("#2c6d6a", "#0e2726", "#bdf0e8"),
+# Safe box: max glyph side and centre, per icon kind (128-unit canvas).
+SAFE = {"ability": 76, "status": 100}
+CENTRE = (64, 64)
+
+# Paint tokens. Glyphs must use only these.
+B, F, A = "url(#body)", "url(#face)", "url(#accent)"
+
+# Hue sets: (ground, body, face, accent)
+HUES = {
+    "red": ("#7a2b24", "#5a1d18", "#f2c9b0", "#ffd36b"),
+    "gold": ("#7a6022", "#4a3410", "#f3dc92", "#fff3c4"),
+    "violet": ("#4c3577", "#2a1b45", "#ddd0ff", "#ffe08a"),
+    "blue": ("#284f86", "#16304f", "#d2e4fa", "#ffe08a"),
+    "steel": ("#4a5059", "#23272c", "#e1e6ec", "#ffd36b"),
+    "green": ("#285238", "#123020", "#bfeec4", "#f2ff9e"),
+    "teal": ("#22585a", "#0e2c2d", "#c4f1ea", "#ffe08a"),
+    "brown": ("#5e4128", "#33210f", "#f1d6ad", "#ffd36b"),
+    "fire": (None, "#8e1a10", "#f07a22", "#fff1b0"),
+    "holy": (None, "#8a5d10", "#f5c542", "#fffbe0"),
+    "shield": ("#3a4658", "#2b3138", "#4f7fd6", "#f4f7fb"),
+    "poison": (None, "#123a18", "#5cc04e", "#d8ffc0"),
 }
 
 GLYPHS = {
-    # spin: three arcs with arrowheads around a blade
-    "circular_attack": lambda d, l: f"""
-<g fill="none" stroke="{l}" stroke-width="8" stroke-linecap="round">
-  <path d="M64 26 A38 38 0 0 1 97 45"/><path d="M97 83 A38 38 0 0 1 64 102"/><path d="M31 83 A38 38 0 0 1 31 45"/>
+    # ---------------------------------------------------------------- weapons / actions
+    "circular_attack": f"""
+<defs><path id="blade" d="M64 64 C50 50 50 24 74 10 C68 30 78 44 96 50 C84 52 72 56 64 64 Z"/></defs>
+<g fill="{F}"><use href="#blade"/><use href="#blade" transform="rotate(120 64 64)"/><use href="#blade" transform="rotate(240 64 64)"/></g>
+<circle cx="64" cy="64" r="11" fill="{B}"/>""",
+    "berserk_strike": f"""
+<path d="M30 104 L62 72" stroke="{B}" stroke-width="13" stroke-linecap="round"/>
+<path d="M56 78 L48 70 L76 34 C82 28 90 30 96 36 C102 42 102 50 96 54 Z" fill="{F}"/>
+<g fill="{B}"><path d="M78 30 L82 20 L88 32 Z"/><path d="M98 52 L108 48 L98 42 Z"/><path d="M64 46 L54 42 L66 40 Z"/><path d="M80 62 L84 72 L74 64 Z"/></g>""",
+    "shuriken": f"""
+<path d="M64 18 L74 54 L110 64 L74 74 L64 110 L54 74 L18 64 L54 54 Z" fill="{F}"/>
+<circle cx="64" cy="64" r="9" fill="{B}"/>""",
+    "target_arrow": f"""
+<circle cx="60" cy="68" r="38" fill="{F}"/><circle cx="60" cy="68" r="26" fill="{B}"/>
+<circle cx="60" cy="68" r="14" fill="{F}"/><circle cx="60" cy="68" r="5" fill="{B}"/>
+<path d="M60 68 L104 24" stroke="{B}" stroke-width="6" stroke-linecap="round"/>
+<path d="M100 16 L116 12 L112 28 L107 22 Z M94 22 L110 18 L106 34 L101 28 Z" fill="{A}"/>""",
+    "bomb": f"""
+<circle cx="58" cy="74" r="32" fill="{F}"/>
+<rect x="68" y="34" width="18" height="14" rx="3" transform="rotate(35 77 41)" fill="{B}"/>
+<path d="M84 34 C90 26 96 26 100 20" fill="none" stroke="{B}" stroke-width="5" stroke-linecap="round"/>
+<path d="M102 8 L106 18 L116 16 L108 24 L114 32 L104 28 L100 36 L98 26 L88 24 L98 20 Z" fill="{A}"/>""",
+    "burst": f"""
+<path d="M64 10 L74 42 L104 22 L88 52 L120 60 L88 72 L106 104 L74 86 L64 118 L54 86 L22 104 L40 72 L8 60 L40 52 L24 22 L54 42 Z" fill="{F}"/>
+<path d="M64 38 L70 54 L86 50 L76 64 L86 78 L70 74 L64 90 L58 74 L42 78 L52 64 L42 50 L58 54 Z" fill="{A}"/>""",
+    "lightning_strike": f"""
+<path d="M72 18 L38 70 H60 L50 110 L92 52 H68 L80 18 Z" fill="{F}"/>""",
+    "rings": f"""
+<circle cx="64" cy="64" r="12" fill="{F}"/>
+<g fill="none" stroke="{F}" stroke-linecap="round">
+  <circle cx="64" cy="64" r="28" stroke-width="9" stroke-dasharray="36 8"/>
+  <circle cx="64" cy="64" r="46" stroke-width="7" stroke-dasharray="52 12"/>
+</g>""",
+    "bear_trap": f"""
+<g fill="{F}">
+  <path d="M30 92 C18 72 22 44 48 26 L54 32 C34 48 32 72 40 92 Z"/>
+  <path d="M98 92 C110 72 106 44 80 26 L74 32 C94 48 96 72 88 92 Z"/>
+  """ + "".join(f'<path d="M{x} {y} L{x + 11} {y + 3} L{x + 2} {y + 9} Z"/><path d="M{128 - x} {y} L{128 - x - 11} {y + 3} L{128 - x - 2} {y + 9} Z"/>'
+                for x, y in [(30, 74), (30, 60), (34, 47), (42, 36)]) + f"""
 </g>
-<g fill="{l}"><path d="M104 40 L99 58 L88 44 Z"/><path d="M58 108 L54 92 L70 96 Z"/><path d="M24 56 L40 50 L34 66 Z"/></g>
-<path d="M64 40 L70 76 L64 86 L58 76 Z" fill="{d}"/><rect x="54" y="84" width="20" height="6" rx="2" fill="{d}"/>""",
-    # shield with rising chevrons
-    "aura_of_war": lambda d, l: f"""
-<path d="M64 24 L98 36 V62 C98 84 82 98 64 106 C46 98 30 84 30 62 V36 Z" fill="{d}"/>
-<g fill="none" stroke="{l}" stroke-width="9" stroke-linejoin="round" stroke-linecap="round">
-  <path d="M46 70 L64 54 L82 70"/><path d="M46 88 L64 72 L82 88"/>
+<rect x="14" y="90" width="100" height="14" rx="4" fill="{F}"/>
+<circle cx="34" cy="96" r="7" fill="{B}"/><circle cx="94" cy="96" r="7" fill="{B}"/>""",
+    # ---------------------------------------------------------------- defence / support
+    "aura_of_war": f"""
+<path d="M64 20 L100 33 V60 C100 84 84 100 64 108 C44 100 28 84 28 60 V33 Z" fill="{B}"/>
+<path d="M47 62 L64 47 L81 62 V73 L64 58 L47 73 Z" fill="{F}"/>
+<path d="M50 82 L64 70 L78 82 V91 L64 79 L50 91 Z" fill="{F}"/>""",
+    "bless": f"""
+<ellipse cx="64" cy="32" rx="26" ry="9" fill="none" stroke="{A}" stroke-width="7"/>
+<path d="M64 48 L92 58 V76 C92 92 80 102 64 108 C48 102 36 92 36 76 V58 Z" fill="{B}"/>
+<path d="M64 62 L68 74 L80 74 L70 82 L74 94 L64 86 L54 94 L58 82 L48 74 L60 74 Z" fill="{F}"/>""",
+    # 0 A.D. "standground" vocabulary: overlapping tower shields with a boss strip
+    "protect_units": f"""
+<defs><g id="tower"><path d="M-15 -42 Q0 -48 15 -42 V38 Q0 46 -15 38 Z" fill="{F}"/>
+<rect x="-2.5" y="-40" width="5" height="78" fill="{A}"/><circle r="6" fill="{A}"/></g></defs>
+<use href="#tower" transform="translate(40 66) rotate(-10) scale(0.88)"/>
+<use href="#tower" transform="translate(88 66) rotate(10) scale(0.88)"/>
+<use href="#tower" transform="translate(64 64)"/>""",
+    "last_stand": f"""
+<path d="M64 104 C30 82 20 62 28 46 C36 30 56 30 64 46 C72 30 92 30 100 46 C108 62 98 82 64 104 Z" fill="{F}"/>
+<path d="M30 66 H50 L56 54 L64 80 L72 60 L78 66 H98" fill="none" stroke="{B}" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>""",
+    "conversion": f"""
+<circle cx="64" cy="46" r="11" fill="{F}"/><path d="M46 92 C46 70 82 70 82 92 Z" fill="{F}"/>
+<g fill="{A}">
+  <path d="M24 60 A40 40 0 0 1 92 26 L98 18 L104 44 L80 40 L86 34 A30 30 0 0 0 34 62 Z"/>
+  <path d="M104 68 A40 40 0 0 1 36 102 L30 110 L24 84 L48 88 L42 94 A30 30 0 0 0 94 66 Z"/>
 </g>""",
-    "lightning_strike": lambda d, l: f"""
-<path d="M72 18 L38 70 H60 L50 110 L92 52 H68 L80 18 Z" fill="{l}" stroke="{d}" stroke-width="5" stroke-linejoin="round"/>""",
-    # halo above a shield
-    "bless": lambda d, l: f"""
-<ellipse cx="64" cy="32" rx="26" ry="9" fill="none" stroke="{l}" stroke-width="7"/>
-<path d="M64 48 L92 58 V76 C92 92 80 102 64 108 C48 102 36 92 36 76 V58 Z" fill="{d}"/>
-<path d="M64 62 L68 74 L80 74 L70 82 L74 94 L64 86 L54 94 L58 82 L48 74 L60 74 Z" fill="{l}"/>""",
-    # large shield sheltering three units
-    "protect_units": lambda d, l: f"""
-<path d="M64 20 L104 34 V58 C104 84 86 100 64 108 C42 100 24 84 24 58 V34 Z" fill="{d}"/>
-<g fill="{l}"><circle cx="64" cy="54" r="9"/><circle cx="46" cy="72" r="8"/><circle cx="82" cy="72" r="8"/>
-<rect x="56" y="64" width="16" height="22" rx="7"/><rect x="39" y="80" width="14" height="16" rx="6"/><rect x="75" y="80" width="14" height="16" rx="6"/></g>""",
-    # cloud with dripping drops
-    "poison_cloud": lambda d, l: f"""
-<path d="M36 72 C22 72 22 52 36 52 C36 36 58 32 64 44 C72 30 96 36 92 54 C106 54 106 72 92 72 Z" fill="{l}" stroke="{d}" stroke-width="5"/>
-<g fill="{l}" stroke="{d}" stroke-width="4">
-  <path d="M44 82 C44 82 36 94 44 98 C52 94 44 82 44 82 Z"/><path d="M64 84 C64 84 56 98 64 102 C72 98 64 84 64 84 Z"/><path d="M84 82 C84 82 76 94 84 98 C92 94 84 82 84 82 Z"/>
+    # ---------------------------------------------------------------- creatures / voices / nature
+    "call_wolfs": f"""
+<path d="M34 30 L52 50 H76 L94 30 L92 64 L78 84 L64 104 L50 84 L36 64 Z" fill="{F}"/>
+<g fill="{B}"><path d="M48 62 L58 66 L48 70 Z"/><path d="M80 62 L70 66 L80 70 Z"/><path d="M58 90 H70 L64 98 Z"/></g>""",
+    "war_cry": f"""
+<path d="M22 44 C22 26 50 22 56 40 L60 56 L50 60 L58 66 L50 72 L52 92 C38 98 22 90 22 74 Z" fill="{F}"/>
+<g fill="{A}">
+  <path d="M68 50 A18 18 0 0 1 68 78 L76 84 A28 28 0 0 0 76 44 Z"/>
+  <path d="M82 38 A34 34 0 0 1 82 90 L90 96 A44 44 0 0 0 90 32 Z"/>
 </g>""",
-    # four-point throwing star with hole
-    "shuriken": lambda d, l: f"""
-<path d="M64 18 L74 54 L110 64 L74 74 L64 110 L54 74 L18 64 L54 54 Z" fill="{l}" stroke="{d}" stroke-width="5" stroke-linejoin="round"/>
-<circle cx="64" cy="64" r="9" fill="{d}"/>""",
-    # spiked club, diagonal
-    "berserk_strike": lambda d, l: f"""
-<path d="M34 102 L66 70" stroke="{d}" stroke-width="12" stroke-linecap="round"/>
-<g fill="{l}" stroke="{d}" stroke-width="4" stroke-linejoin="round">
-  <path d="M60 76 L52 68 L80 32 L96 48 Z"/>
-</g>
-<g fill="{d}"><path d="M78 30 L84 18 L88 34 Z"/><path d="M98 50 L110 44 L94 40 Z"/><path d="M66 46 L56 38 L70 40 Z"/><path d="M80 64 L86 76 L74 66 Z"/></g>""",
-    # stylised wolf head
-    "call_wolfs": lambda d, l: f"""
-<path d="M34 30 L52 50 H76 L94 30 L92 64 L78 84 L64 104 L50 84 L36 64 Z" fill="{l}" stroke="{d}" stroke-width="5" stroke-linejoin="round"/>
-<g fill="{d}"><path d="M48 62 L58 66 L48 70 Z"/><path d="M80 62 L70 66 L80 70 Z"/><path d="M58 90 H70 L64 98 Z"/></g>""",
-    # heart with heartbeat line
-    "last_stand": lambda d, l: f"""
-<path d="M64 104 C30 82 20 62 28 46 C36 30 56 30 64 46 C72 30 92 30 100 46 C108 62 98 82 64 104 Z" fill="{l}" stroke="{d}" stroke-width="5"/>
-<path d="M30 66 H50 L56 54 L64 80 L72 60 L78 66 H98" fill="none" stroke="{d}" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>""",
-    # shouting head in profile with sound waves
-    "war_cry": lambda d, l: f"""
-<path d="M24 42 C24 28 50 24 56 40 L60 56 L50 60 L58 66 L50 72 L52 90 C40 96 24 88 24 74 Z" fill="{d}"/>
-<g fill="none" stroke="{l}" stroke-width="7" stroke-linecap="round">
-  <path d="M70 52 A16 16 0 0 1 70 76"/><path d="M82 42 A30 30 0 0 1 82 86"/><path d="M94 32 A44 44 0 0 1 94 96"/>
+    "war_horn": f"""
+<path d="M18 104 C24 78 50 50 92 30 L112 64 C80 70 52 86 30 112 Z" fill="{F}"/>
+<ellipse cx="102" cy="47" rx="9" ry="20" transform="rotate(-28 102 47)" fill="{B}"/>
+<g fill="{B}"><path d="M44 66 L52 60 L64 82 L56 88 Z"/><path d="M66 50 L75 45 L86 70 L77 74 Z"/></g>""",
+    "drum": f"""
+<path d="M24 54 V88 C24 98 104 98 104 88 V54 Z" fill="{B}"/>
+<ellipse cx="64" cy="54" rx="40" ry="14" fill="{F}"/>
+<path d="M30 66 L46 92 L62 68 L78 94 L96 66" fill="none" stroke="{F}" stroke-width="4" stroke-linejoin="round"/>
+<g stroke="{A}" stroke-width="6" stroke-linecap="round"><path d="M36 18 L60 48"/><path d="M92 18 L68 48"/></g>""",
+    "drum_pulse": f"""
+<path d="M34 70 V96 C34 104 94 104 94 96 V70 Z" fill="{B}"/>
+<ellipse cx="64" cy="70" rx="30" ry="10" fill="{F}"/>
+<g fill="none" stroke="{A}" stroke-width="7" stroke-linecap="round">
+  <path d="M40 46 A30 30 0 0 1 88 46"/><path d="M26 34 A48 48 0 0 1 102 34"/>
 </g>""",
+    "spyglass": f"""
+<g transform="rotate(-30 64 64)">
+  <rect x="14" y="54" width="30" height="22" rx="3" fill="{F}"/>
+  <rect x="42" y="57" width="30" height="16" rx="2" fill="{F}"/>
+  <rect x="70" y="59" width="26" height="12" rx="2" fill="{F}"/>
+  <rect x="94" y="56" width="10" height="18" rx="2" fill="{B}"/>
+  <rect x="38" y="52" width="6" height="26" fill="{B}"/><rect x="68" y="55" width="5" height="20" fill="{B}"/>
+</g>""",
+    "poison_cloud": f"""
+<path d="M36 72 C22 72 22 52 36 52 C36 36 58 32 64 44 C72 30 96 36 92 54 C106 54 106 72 92 72 Z" fill="{F}"/>
+<g fill="{A}">
+  <path d="M44 80 C44 80 36 92 44 96 C52 92 44 80 44 80 Z"/><path d="M64 82 C64 82 56 96 64 100 C72 96 64 82 64 82 Z"/><path d="M84 80 C84 80 76 92 84 96 C92 92 84 80 84 80 Z"/>
+</g>""",
+    # ---------------------------------------------------------------- status-effect objects
+    "flame": f"""
+<path d="M60 6 C64 26 82 34 90 50 C94 40 92 30 88 24 C104 38 114 58 112 80 C110 106 90 122 64 122 C38 122 18 106 18 82 C18 62 30 50 38 42 C38 54 42 62 48 66 C46 46 50 24 60 6 Z" fill="{B}"/>
+<path d="M64 34 C66 50 80 58 84 74 C86 66 86 60 84 56 C94 66 98 80 96 92 C94 108 80 116 64 116 C48 116 34 106 34 90 C34 76 42 68 48 62 C48 72 52 78 56 80 C54 64 56 48 64 34 Z" fill="{F}"/>
+<path d="M64 64 C66 76 76 82 78 94 C80 106 72 112 64 112 C56 112 48 106 50 94 C51 86 56 82 58 78 C60 84 62 86 64 86 C62 78 62 70 64 64 Z" fill="{A}"/>""",
+    "halo": f"""
+<defs><path id="beam" d="M60 30 L64 6 L68 30 Z"/></defs>
+<g fill="{A}">""" + "".join(f'<use href="#beam" transform="rotate({a} 64 64)"/>' for a in range(0, 360, 30)) + f"""</g>
+<circle cx="64" cy="64" r="34" fill="none" stroke="{B}" stroke-width="16"/>
+<circle cx="64" cy="64" r="34" fill="none" stroke="{F}" stroke-width="11"/>""",
+    "kite_shield": f"""
+<path d="M64 6 L114 22 V58 C114 92 92 112 64 124 C36 112 14 92 14 58 V22 Z" fill="{B}"/>
+<path d="M64 16 L105 29 V58 C105 86 87 103 64 113 C41 103 23 86 23 58 V29 Z" fill="{F}"/>
+<path d="M57 38 H71 V56 H89 V70 H71 V92 H57 V70 H39 V56 H57 Z" fill="{A}"/>""",
+    "poison_drop": f"""
+<path d="M58 6 C58 6 16 58 16 86 C16 110 36 124 58 124 C80 124 100 110 100 86 C100 58 58 6 58 6 Z" fill="{F}"/>
+<path d="M42 80 C42 68 74 68 74 80 C74 88 70 92 66 94 V100 H50 V94 C46 92 42 88 42 80 Z" fill="{B}"/>
+<g fill="{A}"><circle cx="51" cy="81" r="5"/><circle cx="65" cy="81" r="5"/></g>
+<circle cx="106" cy="34" r="10" fill="{F}"/><circle cx="110" cy="60" r="6" fill="{F}"/>""",
 }
 
-# (name, kind, glyph, palette); a name may exist as both ability and status icon
+# (file name, kind, glyph, hue)
 ICONS = [
     ("circular_attack", "ability", "circular_attack", "red"),
     ("aura_of_war", "ability", "aura_of_war", "gold"),
     ("lightning_strike", "ability", "lightning_strike", "violet"),
     ("bless", "ability", "bless", "blue"),
-    ("protect_units", "ability", "protect_units", "steel"),
+    ("protect_units", "ability", "protect_units", "shield"),
     ("poison_cloud", "ability", "poison_cloud", "green"),
     ("shuriken", "ability", "shuriken", "steel"),
     ("berserk_strike", "ability", "berserk_strike", "brown"),
     ("call_wolfs", "ability", "call_wolfs", "teal"),
     ("last_stand", "ability", "last_stand", "red"),
     ("war_cry", "ability", "war_cry", "brown"),
-    ("aura_of_war_buff", "status", "aura_of_war", "gold"),
-    ("bless_buff", "status", "bless", "blue"),
-    ("protect_units_buff", "status", "protect_units", "steel"),
-    ("poison_cloud", "status", "poison_cloud", "green"),
+    ("battle_cry", "ability", "war_horn", "brown"),
+    ("battle_cry_custom", "ability", "war_horn", "red"),
+    ("conversion", "ability", "conversion", "violet"),
+    ("ground_charge", "ability", "bomb", "steel"),
+    ("scout_longue_vue", "ability", "spyglass", "teal"),
+    ("sharpshooter", "ability", "target_arrow", "red"),
+    ("shock_burst", "ability", "burst", "gold"),
+    ("shockwave", "ability", "rings", "blue"),
+    ("snare_trap", "ability", "bear_trap", "green"),
+    ("war_drum", "ability", "drum", "brown"),
+    ("war_pulse", "ability", "drum_pulse", "gold"),
+    ("battle_cry_buff", "status", "war_horn", "red"),
+    ("war_drum_buff", "status", "drum", "brown"),
+    ("aura_of_war_buff", "status", "flame", "fire"),
+    ("bless_buff", "status", "halo", "holy"),
+    ("protect_units_buff", "status", "kite_shield", "shield"),
+    ("poison_cloud", "status", "poison_drop", "poison"),
 ]
 
 
-def svg(glyph, palette):
-    bg, dark, light = PALETTES[palette]
+def shade(hex_color, factor):
+    """Lighten (factor > 1) or darken (factor < 1) a #rrggbb colour."""
+    r, g, b = (int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
+    if factor >= 1:
+        r, g, b = (int(c + (255 - c) * (factor - 1)) for c in (r, g, b))
+    else:
+        r, g, b = (int(c * factor) for c in (r, g, b))
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
+def token_defs(hue):
+    _, body, face, accent = HUES[hue]
+
+    def vgrad(gid, top, bottom):
+        return (f'<linearGradient id="{gid}" x1="0" y1="0" x2="0" y2="1">'
+                f'<stop offset="0" stop-color="{top}"/><stop offset="1" stop-color="{bottom}"/></linearGradient>')
+
+    return "\n".join([
+        vgrad("body", shade(body, 1.2), shade(body, 0.7)),
+        vgrad("face", shade(face, 1.3), shade(face, 0.82)),
+        vgrad("accent", shade(accent, 1.4), accent),
+    ])
+
+
+# One material for every glyph: soft bevel highlight, dark outline, drop shadow.
+MATERIAL = """<filter id="material" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+  <feGaussianBlur in="SourceAlpha" stdDeviation="1.6" result="blur"/>
+  <feSpecularLighting in="blur" surfaceScale="3" specularConstant="0.55" specularExponent="16" lighting-color="#ffffff" result="spec">
+    <feDistantLight azimuth="235" elevation="50"/>
+  </feSpecularLighting>
+  <feComposite in="spec" in2="SourceAlpha" operator="in" result="specIn"/>
+  <feComposite in="SourceGraphic" in2="specIn" operator="arithmetic" k2="1" k3="0.8" result="lit"/>
+  <feMorphology in="SourceAlpha" operator="dilate" radius="1.3" result="thick"/>
+  <feFlood flood-color="#0d0a06"/><feComposite in2="thick" operator="in" result="outline"/>
+  <feGaussianBlur in="thick" stdDeviation="2"/><feOffset dx="1.2" dy="2.6"/>
+  <feComponentTransfer result="shadow"><feFuncA type="linear" slope="0.65"/></feComponentTransfer>
+  <feMerge><feMergeNode in="shadow"/><feMergeNode in="outline"/><feMergeNode in="lit"/></feMerge>
+</filter>"""
+
+FRAME = """<radialGradient id="ground" cx="0.5" cy="0.4" r="0.75"><stop offset="0" stop-color="{g1}"/><stop offset="1" stop-color="{g2}"/></radialGradient>
+<linearGradient id="rim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a8f96"/><stop offset="0.45" stop-color="#3b3f45"/><stop offset="1" stop-color="#16181b"/></linearGradient>"""
+FRAME_SHAPES = """<rect x="1" y="1" width="126" height="126" rx="14" fill="url(#rim)"/>
+<rect x="3.5" y="3.5" width="121" height="121" rx="12" fill="none" stroke="#0b0c0e" stroke-width="1.5"/>
+<rect x="8" y="8" width="112" height="112" rx="9" fill="url(#ground)" stroke="#0b0c0e" stroke-width="2"/>"""
+
+
+def document(defs, body):
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{SIZE}" height="{SIZE}" viewBox="0 0 128 128">
-<rect x="2" y="2" width="124" height="124" rx="16" fill="{dark}"/>
-<rect x="8" y="8" width="112" height="112" rx="11" fill="{bg}"/>
-{GLYPHS[glyph](dark, light).strip()}
+<defs>
+{defs}
+</defs>
+{body}
 </svg>
 """
 
 
+def measure(glyph_svg, hue):
+    """Render the bare glyph and return its alpha bounding box (x, y, w, h) in canvas units."""
+    scale = 4
+    with tempfile.TemporaryDirectory() as td:
+        src, png = os.path.join(td, "g.svg"), os.path.join(td, "g.png")
+        with open(src, "w") as f:
+            f.write(document(token_defs(hue), glyph_svg))
+        subprocess.run(["rsvg-convert", "-w", str(SIZE * scale), "-h", str(SIZE * scale), "-o", png, src], check=True)
+        geom = subprocess.run(["magick", png, "-alpha", "extract", "-threshold", "10%", "-format", "%@", "info:"],
+                              check=True, capture_output=True, text=True).stdout.strip()
+    wh, x, y = geom.split("+")
+    w, h = wh.split("x")
+    return tuple(int(v) / scale for v in (x, y, w, h))
+
+
+def build(kind, glyph, hue):
+    x, y, w, h = measure(GLYPHS[glyph], hue)
+    k = SAFE[kind] / max(w, h)
+    tx = CENTRE[0] - (x + w / 2) * k
+    ty = CENTRE[1] - (y + h / 2) * k
+    placed = f'<g filter="url(#material)"><g transform="translate({tx:.2f} {ty:.2f}) scale({k:.4f})">{GLYPHS[glyph]}</g></g>'
+    defs = token_defs(hue) + "\n" + MATERIAL
+    if kind == "ability":
+        ground = HUES[hue][0]
+        defs += "\n" + FRAME.format(g1=ground, g2=shade(ground, 0.35))
+        return document(defs, FRAME_SHAPES + "\n" + placed)
+    return document(defs, placed)
+
+
 def main():
     os.makedirs(SVG_DIR, exist_ok=True)
-    for name, kind, glyph, palette in ICONS:
+    for name, kind, glyph, hue in ICONS:
         src = os.path.join(SVG_DIR, f"{kind}_{name}.svg")
         with open(src, "w") as f:
-            f.write(svg(glyph, palette))
+            f.write(build(kind, glyph, hue))
         dst = os.path.join(OUT[kind], f"{name}.png")
         subprocess.run(["rsvg-convert", "-w", str(SIZE), "-h", str(SIZE), "-o", dst, src], check=True)
         print(dst)

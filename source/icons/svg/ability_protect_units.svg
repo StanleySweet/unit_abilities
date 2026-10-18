@@ -1,7 +1,31 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-<rect x="2" y="2" width="124" height="124" rx="16" fill="#1d2227"/>
-<rect x="8" y="8" width="112" height="112" rx="11" fill="#5d6670"/>
-<path d="M64 20 L104 34 V58 C104 84 86 100 64 108 C42 100 24 84 24 58 V34 Z" fill="#1d2227"/>
-<g fill="#dfe5ea"><circle cx="64" cy="54" r="9"/><circle cx="46" cy="72" r="8"/><circle cx="82" cy="72" r="8"/>
-<rect x="56" y="64" width="16" height="22" rx="7"/><rect x="39" y="80" width="14" height="16" rx="6"/><rect x="75" y="80" width="14" height="16" rx="6"/></g>
+<defs>
+<linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#555a5f"/><stop offset="1" stop-color="#1e2227"/></linearGradient>
+<linearGradient id="face" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#83a5e2"/><stop offset="1" stop-color="#4068af"/></linearGradient>
+<linearGradient id="accent" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f8fafc"/><stop offset="1" stop-color="#f4f7fb"/></linearGradient>
+<filter id="material" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+  <feGaussianBlur in="SourceAlpha" stdDeviation="1.6" result="blur"/>
+  <feSpecularLighting in="blur" surfaceScale="3" specularConstant="0.55" specularExponent="16" lighting-color="#ffffff" result="spec">
+    <feDistantLight azimuth="235" elevation="50"/>
+  </feSpecularLighting>
+  <feComposite in="spec" in2="SourceAlpha" operator="in" result="specIn"/>
+  <feComposite in="SourceGraphic" in2="specIn" operator="arithmetic" k2="1" k3="0.8" result="lit"/>
+  <feMorphology in="SourceAlpha" operator="dilate" radius="1.3" result="thick"/>
+  <feFlood flood-color="#0d0a06"/><feComposite in2="thick" operator="in" result="outline"/>
+  <feGaussianBlur in="thick" stdDeviation="2"/><feOffset dx="1.2" dy="2.6"/>
+  <feComponentTransfer result="shadow"><feFuncA type="linear" slope="0.65"/></feComponentTransfer>
+  <feMerge><feMergeNode in="shadow"/><feMergeNode in="outline"/><feMergeNode in="lit"/></feMerge>
+</filter>
+<radialGradient id="ground" cx="0.5" cy="0.4" r="0.75"><stop offset="0" stop-color="#3a4658"/><stop offset="1" stop-color="#14181e"/></radialGradient>
+<linearGradient id="rim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a8f96"/><stop offset="0.45" stop-color="#3b3f45"/><stop offset="1" stop-color="#16181b"/></linearGradient>
+</defs>
+<rect x="1" y="1" width="126" height="126" rx="14" fill="url(#rim)"/>
+<rect x="3.5" y="3.5" width="121" height="121" rx="12" fill="none" stroke="#0b0c0e" stroke-width="1.5"/>
+<rect x="8" y="8" width="112" height="112" rx="9" fill="url(#ground)" stroke="#0b0c0e" stroke-width="2"/>
+<g filter="url(#material)"><g transform="translate(8.09 9.40) scale(0.8736)">
+<defs><g id="tower"><path d="M-15 -42 Q0 -48 15 -42 V38 Q0 46 -15 38 Z" fill="url(#face)"/>
+<rect x="-2.5" y="-40" width="5" height="78" fill="url(#accent)"/><circle r="6" fill="url(#accent)"/></g></defs>
+<use href="#tower" transform="translate(40 66) rotate(-10) scale(0.88)"/>
+<use href="#tower" transform="translate(88 66) rotate(10) scale(0.88)"/>
+<use href="#tower" transform="translate(64 64)"/></g></g>
 </svg>
