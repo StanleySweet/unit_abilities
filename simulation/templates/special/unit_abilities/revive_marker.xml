@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="template_unit">
+  <Cost>
+    <Population>0</Population>
+    <BuildTime>0</BuildTime>
+    <Resources>
+      <food>0</food>
+      <wood>0</wood>
+      <stone>0</stone>
+      <metal>0</metal>
+    </Resources>
+  </Cost>
+  <Footprint>
+    <Circle radius="0.4"/>
+    <Height>0.7</Height>
+  </Footprint>
+  <Identity>
+    <Civ>gaia</Civ>
+    <GenericName>Fallen Superfighter</GenericName>
+    <Icon>abilities/last_stand.png</Icon>
+    <SelectionGroupName>special/unit_abilities/revive_marker</SelectionGroupName>
+    <Classes datatype="tokens">Unit Revivable</Classes>
+    <VisibleClasses datatype="tokens">Revivable</VisibleClasses>
+    <Undeletable>true</Undeletable>
+  </Identity>
+  <Health disable=""/>
+  <Obstruction>
+    <Unit/>
+    <Active>false</Active>
+    <BlockMovement>false</BlockMovement>
+    <BlockPathfinding>false</BlockPathfinding>
+    <BlockFoundation>false</BlockFoundation>
+    <BlockConstruction>false</BlockConstruction>
+  </Obstruction>
+  <Selectable disable=""/>
+  <Sound>
+    <SoundGroups/>
+  </Sound>
+  <Resistance disable=""/>
+  <Revivable/>
+  <StatusEffectsReceiver disable=""/>
+  <UnitAI disable=""/>
+  <UnitMotion>
+    <WalkSpeed>0.1</WalkSpeed>
+    <RunMultiplier>1.0</RunMultiplier>
+    <Acceleration>0.1</Acceleration>
+  </UnitMotion>
+  <Vision>
+    <Range>0</Range>
+  </Vision>
+  <VisualActor>
+    <Actor>special/unit_abilities/scout_target_decal.xml</Actor>
+  </VisualActor>
+</Entity>
