@@ -76,11 +76,61 @@ function updateAbilityPlacementPreview()
 	});
 }
 
+// Superfighter whose abilities are shown while several are selected (Settlers 5 "shown fighter").
+var g_AbilityFocus = undefined;
+var g_AbilityFocusSelection = "";
+
+/**
+ * @return {number|undefined} The focused entity while the selection is unchanged since it was set.
+ */
+function getAbilityFocus()
+{
+	const selection = g_Selection.toList();
+	if (g_AbilityFocus === undefined || g_AbilityFocusSelection != selection.join(",") ||
+		selection.indexOf(g_AbilityFocus) == -1)
+		g_AbilityFocus = undefined;
+	return g_AbilityFocus;
+}
+
+function cycleAbilityFocus()
+{
+	const selection = g_Selection.toList().filter(ent => {
+		const state = GetEntityState(ent);
+		return state && state.identity && state.identity.classes.indexOf("Superfighter") != -1;
+	});
+	if (selection.length < 2)
+		return;
+
+	const current = selection.indexOf(getAbilityFocus());
+	g_AbilityFocus = selection[(current + 1) % selection.length];
+	g_AbilityFocusSelection = g_Selection.toList().join(",");
+	cancelAbilityTargetSelection();
+	updateGUIObjects();
+}
+
+var g_LastSuperfighter = INVALID_ENTITY;
+
+function findNextSuperfighter()
+{
+	const fighters = Engine.GuiInterfaceCall("GetPlayerSuperfighters", g_ViewedPlayer);
+	if (!fighters.length)
+		return;
+
+	g_LastSuperfighter = fighters.find(ent => ent > g_LastSuperfighter) || fighters[0];
+	g_Selection.reset();
+	g_Selection.addList([g_LastSuperfighter]);
+
+	const entityState = GetEntityState(g_LastSuperfighter);
+	if (entityState && entityState.position)
+		Engine.CameraMoveTo(entityState.position.x, entityState.position.z);
+}
+
 function postAbilityCommand(abilityName, extraData, selection, queued, pushFront)
 {
+	const focus = getAbilityFocus();
 	const command = {
 		"type": "ability",
-		"entities": selection || g_Selection.toList(),
+		"entities": focus !== undefined ? [focus] : selection || g_Selection.toList(),
 		"ability": abilityName,
 		"queued": !!queued,
 		"pushFront": !!pushFront
@@ -319,6 +369,10 @@ g_UnitActionsSortedKeys.sort((a, b) => g_UnitActions[a].specificness - g_UnitAct
 
 function getSharedAbilities(unitEntStates)
 {
+	const focus = getAbilityFocus();
+	if (focus !== undefined)
+		unitEntStates = unitEntStates.filter(state => state.id == focus);
+
 	if (!unitEntStates.length || !unitEntStates[0].abilities || !unitEntStates[0].abilities.length)
 		return [];
 
@@ -417,6 +471,31 @@ g_SelectionPanels.Abilities = {
 		}
 
 		return superHandleInputAfterGui(ev);
+	};
+}
+
+const MOOD_TEXTS = {
+	"happy": markForTranslation("is happy, because he was promoted"),
+	"angry": markForTranslation("is angry, because he was demoted"),
+	"sad": markForTranslation("is sad because he was killed so often without reaching a higher rank"),
+	"bored": markForTranslation("is bored, because he can't fight")
+};
+
+{
+	const superDisplaySingle = displaySingle;
+	displaySingle = function(entState)
+	{
+		superDisplaySingle(entState);
+
+		if (!entState.moods || !entState.moods.length)
+			return;
+
+		const border = Engine.GetGUIObjectByName("iconBorder");
+		const mood = entState.moods[entState.moods.length - 1];
+		border.tooltip += (border.tooltip ? "\n" : "") + sprintf(translate("%(name)s %(mood)s"), {
+			"name": entState.identity.selectionGroupName ? translate(entState.identity.selectionGroupName) : translate(entState.identity.genericName),
+			"mood": translate(MOOD_TEXTS[mood])
+		});
 	};
 }
 

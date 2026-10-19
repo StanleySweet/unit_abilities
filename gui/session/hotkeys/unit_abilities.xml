@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<object>
+	<object hotkey="selection.superfighter.next">
+		<action on="Press">findNextSuperfighter();</action>
+	</object>
+
+	<object hotkey="selection.superfighter.cycle">
+		<action on="Press">cycleAbilityFocus();</action>
+	</object>
+</object>

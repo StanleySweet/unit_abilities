@@ -11,6 +11,10 @@
 		if (cmpAbilities)
 			ret.abilities = cmpAbilities.GetAbilityStates();
 
+		const cmpMood = Engine.QueryInterface(ent, IID_Mood);
+		if (cmpMood)
+			ret.moods = cmpMood.GetMoods();
+
 		return ret;
 	};
 
@@ -43,5 +47,19 @@
 			cmpOwnership.SetOwner(player);
 	};
 
+	/**
+	 * @return {number[]} Living Superfighters of the player, sorted by entity id.
+	 */
+	GuiInterface.prototype.GetPlayerSuperfighters = function(player)
+	{
+		const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
+		return cmpRangeManager.GetEntitiesByPlayer(player).filter(ent => {
+			const cmpIdentity = Engine.QueryInterface(ent, IID_Identity);
+			const cmpHealth = Engine.QueryInterface(ent, IID_Health);
+			return cmpIdentity && cmpIdentity.HasClass("Superfighter") && cmpHealth && cmpHealth.GetHitpoints() > 0;
+		}).sort((a, b) => a - b);
+	};
+
 	GuiInterface.prototype.exposedFunctions.SetAbilityPlacementPreview = 1;
+	GuiInterface.prototype.exposedFunctions.GetPlayerSuperfighters = 1;
 }

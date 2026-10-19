@@ -1,0 +1,14 @@
+{
+	"mapped_hotkeys": {
+		"selection": {
+			"selection.superfighter.next": {
+				"name": "Select next Superfighter",
+				"desc": "Center the camera on the next living Superfighter and select it."
+			},
+			"selection.superfighter.cycle": {
+				"name": "Cycle shown Superfighter",
+				"desc": "With several Superfighters selected, show the abilities of the next one and send ability commands only to it."
+			}
+		}
+	}
+}
