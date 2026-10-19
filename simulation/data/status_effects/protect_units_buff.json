@@ -1,0 +1,7 @@
+{
+	"applierTooltip": "Inspire nearby allies: they take less damage and recover faster.",
+	"code": "ProtectUnitsBuff",
+	"icon": "protect_units_buff",
+	"statusName": "Protected",
+	"receiverTooltip": "This unit is protected by an inspiring ally."
+}

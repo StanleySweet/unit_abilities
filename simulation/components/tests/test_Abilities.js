@@ -33,6 +33,7 @@ Engine.LoadComponentScript("interfaces/Diplomacy.js");
 Engine.LoadComponentScript("interfaces/Health.js");
 Engine.LoadComponentScript("interfaces/Player.js");
 Engine.LoadComponentScript("interfaces/PlayerManager.js");
+Engine.LoadComponentScript("interfaces/Promotion.js");
 Engine.LoadComponentScript("interfaces/DelayedDamage.js");
 Engine.LoadComponentScript("interfaces/Infiltrator.js");
 Engine.LoadComponentScript("interfaces/InfiltrationEntrance.js");
@@ -987,6 +988,42 @@ AddMock(fifthEntity, IID_UnitAI, {
 TS_ASSERT(!cmpStatefulAutoAbilities.MatchesAutoTriggerState(fifthTemplate.OrderedPulse.AutoTrigger));
 TS_ASSERT(!cmpStatefulAutoAbilities.IsInBattle());
 
+// HealthBelow condition.
+let healthTestHp = 10;
+AddMock(fifthEntity, IID_Health, {
+	"GetHitpoints": () => healthTestHp,
+	"GetMaxHitpoints": () => 100
+});
+TS_ASSERT(cmpStatefulAutoAbilities.MatchesAutoTriggerHealth({ "HealthBelow": "15" }));
+healthTestHp = 20;
+TS_ASSERT(!cmpStatefulAutoAbilities.MatchesAutoTriggerHealth({ "HealthBelow": "15" }));
+TS_ASSERT(cmpStatefulAutoAbilities.MatchesAutoTriggerHealth({}));
+TS_ASSERT(cmpStatefulAutoAbilities.MatchesAutoTriggerHealth(undefined));
+
+// AutoTriggerAbility honours HealthBelow: no trigger above the threshold, trigger below it.
+AddMock(fifthEntity, IID_UnitAI, {
+	"GetCurrentState": () => "INDIVIDUAL.COMBAT.ATTACKING",
+	"GetOrders": () => [],
+	"FaceTowardsTarget": () => {}
+});
+fifthTemplate.OrderedPulse.AutoTrigger.HealthBelow = "15";
+autoPlayedSound = undefined;
+healthTestHp = 20;
+cmpStatefulAutoAbilities.AutoTriggerAbility("OrderedPulse");
+TS_ASSERT_EQUALS(autoPlayedSound, undefined);
+healthTestHp = 10;
+cmpStatefulAutoAbilities.lastTriggered = {};
+cmpStatefulAutoAbilities.AutoTriggerAbility("OrderedPulse");
+TS_ASSERT_EQUALS(autoPlayedSound, "attack");
+// Restore the idle state so the pulse timer no longer fires for later checks.
+AddMock(fifthEntity, IID_UnitAI, {
+	"GetCurrentState": () => "",
+	"GetOrders": () => [null],
+	"AddOrder": () => {},
+	"WalkToPointRange": () => true,
+	"FaceTowardsTarget": () => {}
+});
+
 AddMock(fourthEntity, IID_Position, {
 	"IsInWorld": () => false
 });
@@ -1276,7 +1313,7 @@ TS_ASSERT_EQUALS(walkedToPointRange.x, 18);
 TS_ASSERT_EQUALS(walkedToPointRange.z, 13.5);
 TS_ASSERT_EQUALS(walkedToPointRange.max, 1);
 TS_ASSERT_EQUALS(addedOrders.length, 0);
-queuedToken = Object.keys(cmpTargetedAbilities.queuedAbilityTimers)[0];
+let queuedToken = Object.keys(cmpTargetedAbilities.queuedAbilityTimers)[0];
 TS_ASSERT(queuedToken !== undefined);
 cmpTargetedAbilities.ProcessQueuedAbility({
 	"token": queuedToken,
@@ -1425,7 +1462,7 @@ TS_ASSERT_EQUALS(walkedToPointRange.max, 4);
 TS_ASSERT_EQUALS(movedToPointRange, undefined);
 casterPosition2D = new Vector2D(88, 88);
 casterPosition3D = new Vector3D(88, 0, 88);
-let queuedToken = Object.keys(cmpTargetedAbilities.queuedAbilityTimers)[0];
+queuedToken = Object.keys(cmpTargetedAbilities.queuedAbilityTimers)[0];
 TS_ASSERT(queuedToken !== undefined);
 cmpTargetedAbilities.ProcessQueuedAbility({
 	"token": queuedToken,
@@ -1838,6 +1875,14 @@ Engine.AddEntity = () => INVALID_ENTITY;
 cmpTargetedAbilities.SpawnEntity({ "SpawnEntity": { "Template": "units/missing", "Origin": "target" } }, { "type": "point", "position": new Vector2D(3, 4) });
 Engine.AddEntity = originalAddEntity;
 
+let countedSpawns = 0;
+Engine.AddEntity = () => { ++countedSpawns; return INVALID_ENTITY; };
+cmpTargetedAbilities.SpawnEntity({ "SpawnEntity": { "Template": "units/test_trap", "Count": "2" } }, { "type": "point", "position": new Vector2D(3, 4) });
+TS_ASSERT_EQUALS(countedSpawns, 2);
+cmpTargetedAbilities.SpawnEntity({ "SpawnEntity": { "Template": "units/test_trap" } }, { "type": "point", "position": new Vector2D(3, 4) });
+TS_ASSERT_EQUALS(countedSpawns, 3);
+Engine.AddEntity = originalAddEntity;
+
 spawnedScoutRevealers = [];
 destroyedEntities = [];
 TS_ASSERT(cmpScoutAbilities.TriggerAbility("ScoutLongueVue", {
@@ -1942,6 +1987,61 @@ TS_ASSERT(cmpTargetedAbilities.HealEntity(allyTargetEntity, 5));
 TS_ASSERT(!cmpTargetedAbilities.HealEntity(thirdEntity, 5));
 TS_ASSERT(!cmpTargetedAbilities.HealEntity(allyTargetEntity, 0));
 
+// The engine range query excludes the caster: IncludeSelf must add it explicitly.
+AddMock(SYSTEM_ENTITY, IID_RangeManager, {
+	"ExecuteQuery": () => [secondEntity]
+});
+statusCalls = [];
+cmpTargetedAbilities.ApplyBuff("SelfBuff", { "Buff": { "Range": "0", "Duration": "1000", "IncludeSelf": "true", "Modifiers": {} } });
+TS_ASSERT_UNEVAL_EQUALS(statusCalls.map(call => call.target), [secondEntity, firstEntity]);
+statusCalls = [];
+cmpTargetedAbilities.ApplyBuff("SelfBuff", { "Buff": { "Range": "0", "Duration": "1000", "IncludeSelf": "false", "Modifiers": {} } });
+TS_ASSERT_UNEVAL_EQUALS(statusCalls.map(call => call.target), [secondEntity]);
+
+// TargetOnly applies the buff to the chosen entity only, ignoring other receivers in range.
+statusCalls = [];
+cmpTargetedAbilities.ApplyBuff("Bless", { "Buff": { "Range": "0", "Duration": "1000", "TargetOnly": "true", "Modifiers": {} } }, { "entity": secondEntity });
+TS_ASSERT_UNEVAL_EQUALS(statusCalls.map(call => call.target), [secondEntity]);
+statusCalls = [];
+cmpTargetedAbilities.ApplyBuff("Bless", { "Buff": { "Range": "0", "Duration": "1000", "TargetOnly": "false", "Modifiers": {} } });
+TS_ASSERT_UNEVAL_EQUALS(statusCalls.map(call => call.target), [secondEntity, firstEntity]);
+// With other receivers in range, TargetOnly still hits only the chosen target.
+AddMock(thirdEntity, IID_StatusEffectsReceiver, {
+	"AddStatus": () => statusCalls.push({ "target": thirdEntity })
+});
+AddMock(SYSTEM_ENTITY, IID_RangeManager, {
+	"ExecuteQuery": () => [secondEntity, thirdEntity]
+});
+statusCalls = [];
+cmpTargetedAbilities.ApplyBuff("Bless", { "Buff": { "Range": "0", "Duration": "1000", "TargetOnly": "true", "Modifiers": {} } }, { "entity": thirdEntity });
+TS_ASSERT_UNEVAL_EQUALS(statusCalls.map(call => call.target), [thirdEntity]);
+
+// AreaHeal IncludeSelf: the range query never returns the caster, so it is added unless "false"; never twice.
+const areaHealed = [];
+for (const entity of [firstEntity, 920])
+	AddMock(entity, IID_Health, {
+		"GetHitpoints": () => 10,
+		"GetMaxHitpoints": () => 100,
+		"Increase": amount => areaHealed.push(entity)
+	});
+const areaHeal = includeSelf => ({ "AreaHeal": { "Range": "7", "Amount": "5", "IncludeSelf": includeSelf } });
+let areaQuery = [920];
+AddMock(SYSTEM_ENTITY, IID_RangeManager, { "ExecuteQuery": () => areaQuery.slice() });
+for (const [includeSelf, query, expected] of [
+	["true", [920], [920, firstEntity]],
+	[undefined, [920], [920, firstEntity]],
+	["false", [920], [920]],
+	["true", [920, firstEntity], [920, firstEntity]]
+])
+{
+	areaHealed.length = 0;
+	areaQuery = query;
+	cmpTargetedAbilities.ApplyAreaHeal(areaHeal(includeSelf), {});
+	TS_ASSERT_UNEVAL_EQUALS(areaHealed, expected);
+}
+DeleteMock(firstEntity, IID_Health);
+DeleteMock(920, IID_Health);
+
 cmpTargetedAbilities.animationResetTimer = 12345;
 cmpTargetedAbilities.autoTriggerTimers = [11, 12];
 cmpTargetedAbilities.delayedAbilityTimers = [21, 22];
@@ -1955,6 +2055,71 @@ TS_ASSERT_EQUALS(cmpTargetedAbilities.animationResetTimer, undefined);
 TS_ASSERT_EQUALS(cmpTargetedAbilities.autoTriggerTimers.length, 0);
 TS_ASSERT_EQUALS(cmpTargetedAbilities.delayedAbilityTimers.length, 0);
 TS_ASSERT_EQUALS(Object.keys(cmpTargetedAbilities.queuedAbilityTimers).length, 0);
+
+// MaxTargets keeps only the closest targets; without it every target is hit.
+const maxTargetEntities = [901, 902, 903, 904, 905];
+const maxTargetDistances = [50, 10, 40, 20, 30];
+maxTargetEntities.forEach((entity, i) => AddMock(entity, IID_Position, {
+	"IsInWorld": () => true,
+	"GetPosition2D": () => new Vector2D(casterPosition2D.x + maxTargetDistances[i], casterPosition2D.y)
+}));
+AddMock(SYSTEM_ENTITY, IID_RangeManager, {
+	"GetEntitiesByPlayer": player => player == owner ? ownedEntities : [],
+	"ExecuteQuery": () => maxTargetEntities.slice()
+});
+attackCalls.length = 0;
+cmpTargetedAbilities.ApplyAreaAttack("Shuriken", { "AreaAttack": { "Range": "60", "MaxTargets": "3", "TargetPlayers": { "_string": "Enemy" }, "Damage": { "Pierce": "35" } } });
+TS_ASSERT_UNEVAL_EQUALS(attackCalls.map(call => call.target), [902, 904, 905]);
+attackCalls.length = 0;
+cmpTargetedAbilities.ApplyAreaAttack("Shuriken", { "AreaAttack": { "Range": "60", "TargetPlayers": { "_string": "Enemy" }, "Damage": { "Pierce": "35" } } });
+TS_ASSERT_EQUALS(attackCalls.length, 5);
+
+// Flee orders non-restricted enemies to flee from the caster.
+const fleeCalls = [];
+const fleeEntities = [911, 912, 913];
+fleeEntities.forEach(entity => {
+	AddMock(entity, IID_UnitAI, { "Flee": (target, queued) => fleeCalls.push({ entity, target, queued }) });
+	AddMock(entity, IID_Identity, { "HasClass": className => entity == 913 && className == "Hero" });
+});
+AddMock(SYSTEM_ENTITY, IID_RangeManager, {
+	"GetEntitiesByPlayer": player => player == owner ? ownedEntities : [],
+	"ExecuteQuery": () => fleeEntities.slice()
+});
+cmpTargetedAbilities.ApplyFlee({ "Flee": { "Range": "15", "TargetPlayers": { "_string": "Enemy" }, "RestrictedClasses": { "_string": "Hero" } } });
+TS_ASSERT_UNEVAL_EQUALS(fleeCalls, [
+	{ "entity": 911, "target": firstEntity, "queued": false },
+	{ "entity": 912, "target": firstEntity, "queued": false }
+]);
+fleeCalls.length = 0;
+cmpTargetedAbilities.ApplyFlee({});
+TS_ASSERT_EQUALS(fleeCalls.length, 0);
+
+// RankScaling multiplies damage and heals by 1 + level * PerLevel.
+const rankHealed = [];
+AddMock(firstEntity, IID_Health, {
+	"GetHitpoints": () => 10,
+	"GetMaxHitpoints": () => 100,
+	"Increase": amount => rankHealed.push(amount)
+});
+const rankScaling = { "RankScaling": { "PerLevel": "0.1" } };
+const rankDamage = ability => {
+	attackCalls.length = 0;
+	cmpTargetedAbilities.ApplyDirectDamage("Rank", Object.assign({ "DirectDamage": { "Damage": { "Hack": "10" } } }, ability), {});
+	return attackCalls[0].data.attackData.Damage.Hack;
+};
+for (const [level, expected] of [[0, 10], [3, 13], [5, 15]])
+{
+	AddMock(firstEntity, IID_Promotion, { "GetLevel": () => level });
+	TS_ASSERT_EQUALS(rankDamage(rankScaling), expected);
+	rankHealed.length = 0;
+	cmpTargetedAbilities.ApplyDirectHeal(Object.assign({ "DirectHeal": { "Amount": "10" } }, rankScaling), {});
+	TS_ASSERT_EQUALS(rankHealed[0], expected);
+	TS_ASSERT_EQUALS(rankDamage({}), 10);
+}
+AddMock(firstEntity, IID_Promotion, {});
+TS_ASSERT_EQUALS(rankDamage(rankScaling), 10);
+DeleteMock(firstEntity, IID_Promotion);
+DeleteMock(firstEntity, IID_Health);
 
 cmpChannelAbilities.OnDestroy();
 cmpDelayedAbilities.OnDestroy();

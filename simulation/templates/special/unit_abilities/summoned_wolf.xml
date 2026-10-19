@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="gaia/fauna_wolf_arctic_violent">
+  <Identity>
+    <Classes datatype="tokens">Unit Organic Summoned</Classes>
+  </Identity>
+  <Loot disable=""/>
+  <SpawnedEntity/>
+</Entity>

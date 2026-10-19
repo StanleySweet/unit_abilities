@@ -1,0 +1,7 @@
+{
+	"applierTooltip": "This poison cloud damages nearby enemy units over time.",
+	"code": "PoisonCloud",
+	"icon": "poison_cloud",
+	"statusName": "Poisoned",
+	"receiverTooltip": "This unit is poisoned and loses health over time."
+}

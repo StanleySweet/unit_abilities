@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="template_unit_infantry_melee_swordsman">
+  <Identity>
+    <Civ>gaia</Civ>
+    <Phenotype>male</Phenotype>
+    <GenericName>Ninja</GenericName>
+    <SpecificName>Superfighter Ninja</SpecificName>
+    <Icon>abilities/battle_cry_custom.png</Icon>
+    <SelectionGroupName>units/unit_abilities/superfighter_ninja</SelectionGroupName>
+    <Classes datatype="tokens">Human CitizenSoldier Organic DemoAbilityUnit Superfighter</Classes>
+    <VisibleClasses datatype="tokens">Soldier Infantry Demo Ability</VisibleClasses>
+  </Identity>
+  <Abilities>
+    <PoisonCloud>
+      <Action>point-target</Action>
+      <Icon>abilities/poison_cloud.png</Icon>
+      <Cooldown>30000</Cooldown>
+      <Tooltip>Throw poison on the ground. Enemies in the area lose health over 8 seconds.</Tooltip>
+      <Target>
+        <Type>Point</Type>
+        <MaxRange>25</MaxRange>
+        <Cursor>action-attack</Cursor>
+        <PreviewTemplate>special/unit_abilities/trap_marker</PreviewTemplate>
+      </Target>
+      <Animation>attack_melee</Animation>
+      <AnimationDuration>900</AnimationDuration>
+      <SpawnEntity>
+        <Template>special/unit_abilities/poison_marker</Template>
+        <Origin>target</Origin>
+        <Owner>caster</Owner>
+        <Duration>8000</Duration>
+        <Timing>immediate</Timing>
+      </SpawnEntity>
+      <AreaAttack>
+        <Origin>target</Origin>
+        <Range>6</Range>
+        <TargetPlayers datatype="tokens">Gaia Enemy</TargetPlayers>
+        <ApplyStatus>
+          <PoisonCloud>
+            <Duration>8000</Duration>
+            <Interval>1000</Interval>
+            <Damage>
+              <Poison>4</Poison>
+            </Damage>
+            <Stackability>Replace</Stackability>
+          </PoisonCloud>
+    <Shuriken>
+      <Action>instant</Action>
+      <Icon>abilities/shuriken.png</Icon>
+      <Cooldown>30000</Cooldown>
+      <Tooltip>Throw stars at the three closest enemies.</Tooltip>
+      <Animation>attack_ranged</Animation>
+      <AnimationDuration>900</AnimationDuration>
+      <AreaAttack>
+        <Range>20</Range>
+        <MaxTargets>3</MaxTargets>
+        <TargetPlayers datatype="tokens">Gaia Enemy</TargetPlayers>
+        <Damage>
+          <Pierce>35</Pierce>
+        </Damage>
+      </AreaAttack>
+      <Sound>attack</Sound>
+    </Shuriken>
+        </ApplyStatus>
+      </AreaAttack>
+      <Sound>attack</Sound>
+    </PoisonCloud>
+  </Abilities>
+  <Health>
+    <Max>250</Max>
+    <RegenRate>3</RegenRate>
+  </Health>
+  <Resistance>
+    <Entity>
+      <Damage>
+        <Hack op="add">-2</Hack>
+        <Pierce op="add">-2</Pierce>
+      </Damage>
+    </Entity>
+  </Resistance>
+  <Attack>
+    <Melee>
+      <Damage>
+        <Hack op="add">6</Hack>
+      </Damage>
+    </Melee>
+  </Attack>
+  <Builder disable=""/>
+  <Promotion disable=""/>
+  <StarRank/>
+  <ResourceGatherer disable=""/>
+  <VisualActor>
+    <Actor>units/unit_abilities/trap_setter.xml</Actor>
+  </VisualActor>
+</Entity>

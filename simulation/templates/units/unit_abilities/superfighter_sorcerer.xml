@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="template_unit_infantry_melee_swordsman">
+  <Identity>
+    <Civ>gaia</Civ>
+    <Phenotype>male</Phenotype>
+    <GenericName>Sorcerer</GenericName>
+    <SpecificName>Superfighter Sorcerer</SpecificName>
+    <Icon>abilities/battle_cry_custom.png</Icon>
+    <SelectionGroupName>units/unit_abilities/superfighter_sorcerer</SelectionGroupName>
+    <Classes datatype="tokens">Human CitizenSoldier Organic DemoAbilityUnit Superfighter</Classes>
+    <VisibleClasses datatype="tokens">Soldier Infantry Demo Ability</VisibleClasses>
+  </Identity>
+  <Abilities>
+    <LightningStrike>
+      <Action>point-target</Action>
+      <Icon>abilities/lightning_strike.png</Icon>
+      <Cooldown>40000</Cooldown>
+      <EffectDelay>800</EffectDelay>
+      <Tooltip>Call lightning on a ground position, heavily damaging enemies at the impact point.</Tooltip>
+      <Target>
+        <Type>Point</Type>
+        <MaxRange>40</MaxRange>
+        <Cursor>action-attack</Cursor>
+        <PreviewTemplate>special/unit_abilities/charge_marker</PreviewTemplate>
+      </Target>
+      <Animation>attack_melee</Animation>
+      <AnimationDuration>1000</AnimationDuration>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Origin>target</Origin>
+        <Duration>1200</Duration>
+      </Particles>
+      <AreaAttack>
+        <Origin>target</Origin>
+        <Range>6</Range>
+        <TargetPlayers datatype="tokens">Gaia Enemy</TargetPlayers>
+        <Damage>
+          <Fire>60</Fire>
+          <Crush>20</Crush>
+        </Damage>
+      </AreaAttack>
+      <Sound>attack</Sound>
+    </LightningStrike>
+    <Bless>
+      <Action>unit-target</Action>
+      <Icon>abilities/bless.png</Icon>
+      <Cooldown>45000</Cooldown>
+      <Tooltip>Make one friendly unit nearly invulnerable for 10 seconds.</Tooltip>
+      <Target>
+        <Type>Entity</Type>
+        <MaxRange>20</MaxRange>
+        <Cursor>action-heal</Cursor>
+        <TargetPlayers datatype="tokens">Player Ally MutualAlly</TargetPlayers>
+        <Classes datatype="tokens">Unit</Classes>
+        <AllowSelf>true</AllowSelf>
+      </Target>
+      <Animation>attack_melee</Animation>
+      <AnimationDuration>800</AnimationDuration>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Origin>target</Origin>
+        <Duration>1000</Duration>
+      </Particles>
+      <Buff>
+        <Origin>target</Origin>
+        <TargetOnly>true</TargetOnly>
+        <Range>0</Range>
+        <Duration>10000</Duration>
+        <StatusName>BlessBuff</StatusName>
+        <TargetPlayers datatype="tokens">Player Ally MutualAlly</TargetPlayers>
+        <Stackability>Replace</Stackability>
+        <Modifiers>
+          <BlessResistance>
+            <Paths datatype="tokens">Resistance/Entity/Damage/Hack Resistance/Entity/Damage/Pierce Resistance/Entity/Damage/Crush</Paths>
+            <Affects datatype="tokens">Unit</Affects>
+            <Add>50</Add>
+          </BlessResistance>
+        </Modifiers>
+      </Buff>
+      <Sound>order_heal</Sound>
+    </Bless>
+  </Abilities>
+  <Health>
+    <Max>250</Max>
+    <RegenRate>4</RegenRate>
+  </Health>
+  <Resistance>
+    <Entity>
+      <Damage>
+        <Hack op="add">2</Hack>
+        <Pierce op="add">2</Pierce>
+      </Damage>
+    </Entity>
+  </Resistance>
+  <Attack>
+    <Melee>
+      <Damage>
+        <Hack op="add">-4</Hack>
+      </Damage>
+    </Melee>
+  </Attack>
+  <Builder disable=""/>
+  <Promotion disable=""/>
+  <StarRank/>
+  <ResourceGatherer disable=""/>
+  <VisualActor>
+    <Actor>units/unit_abilities/trap_setter.xml</Actor>
+  </VisualActor>
+</Entity>

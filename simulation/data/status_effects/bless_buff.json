@@ -1,0 +1,7 @@
+{
+	"applierTooltip": "Bless makes one friendly unit nearly invulnerable.",
+	"code": "BlessBuff",
+	"icon": "bless_buff",
+	"statusName": "Blessed",
+	"receiverTooltip": "This unit is nearly invulnerable."
+}

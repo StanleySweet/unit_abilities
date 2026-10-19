@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="template_unit_infantry_melee_swordsman">
+  <Identity>
+    <Civ>gaia</Civ>
+    <Phenotype>male</Phenotype>
+    <GenericName>Saiyajin</GenericName>
+    <SpecificName>Superfighter Saiyajin</SpecificName>
+    <Icon>abilities/battle_cry_custom.png</Icon>
+    <SelectionGroupName>units/unit_abilities/superfighter_saiyajin</SelectionGroupName>
+    <Classes datatype="tokens">Human CitizenSoldier Organic DemoAbilityUnit Superfighter</Classes>
+    <VisibleClasses datatype="tokens">Soldier Infantry Demo Ability</VisibleClasses>
+  </Identity>
+  <Abilities>
+    <CircularAttack>
+      <Action>instant</Action>
+      <Icon>abilities/circular_attack.png</Icon>
+      <Cooldown>30000</Cooldown>
+      <Tooltip>Spin attack that damages all enemies close to the caster.</Tooltip>
+      <Animation>attack_melee</Animation>
+      <AnimationVariant>combat</AnimationVariant>
+      <AnimationDuration>1200</AnimationDuration>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Duration>1200</Duration>
+      </Particles>
+      <AreaAttack>
+        <Range>8</Range>
+        <TargetPlayers datatype="tokens">Gaia Enemy</TargetPlayers>
+        <Damage>
+          <Hack>40</Hack>
+        </Damage>
+      </AreaAttack>
+      <Sound>attack</Sound>
+    </CircularAttack>
+    <AuraOfWar>
+      <Action>instant</Action>
+      <Icon>abilities/aura_of_war.png</Icon>
+      <Cooldown>300000</Cooldown>
+      <Tooltip>Temporarily increases this unit's armor and damage.</Tooltip>
+      <AnimationVariant>combat</AnimationVariant>
+      <AnimationDuration>1000</AnimationDuration>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Duration>1500</Duration>
+      </Particles>
+      <Buff>
+        <Range>0</Range>
+        <Duration>15000</Duration>
+        <StatusName>AuraOfWarBuff</StatusName>
+        <TargetPlayers datatype="tokens">Player</TargetPlayers>
+        <IncludeSelf>true</IncludeSelf>
+        <Stackability>Replace</Stackability>
+        <Modifiers>
+          <AuraOfWarDamage>
+            <Paths datatype="tokens">Attack/Melee/Damage/Hack</Paths>
+            <Affects datatype="tokens">Unit</Affects>
+            <Multiply>1.5</Multiply>
+          </AuraOfWarDamage>
+          <AuraOfWarArmor>
+            <Paths datatype="tokens">Resistance/Entity/Damage/Hack Resistance/Entity/Damage/Pierce</Paths>
+            <Affects datatype="tokens">Unit</Affects>
+            <Add>3</Add>
+          </AuraOfWarArmor>
+        </Modifiers>
+      </Buff>
+      <Sound>attack</Sound>
+    </AuraOfWar>
+  </Abilities>
+  <Health>
+    <Max>250</Max>
+    <RegenRate>4.5</RegenRate>
+  </Health>
+  <Resistance>
+    <Entity>
+      <Damage>
+        <Hack op="add">2</Hack>
+        <Pierce op="add">2</Pierce>
+      </Damage>
+    </Entity>
+  </Resistance>
+  <Attack>
+    <Melee>
+      <Damage>
+        <Hack op="add">10</Hack>
+      </Damage>
+    </Melee>
+  </Attack>
+  <Builder disable=""/>
+  <Promotion disable=""/>
+  <StarRank/>
+  <ResourceGatherer disable=""/>
+  <VisualActor>
+    <Actor>units/unit_abilities/trap_setter.xml</Actor>
+  </VisualActor>
+</Entity>

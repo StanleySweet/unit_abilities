@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="template_unit_infantry_melee_swordsman">
+  <Identity>
+    <Civ>gaia</Civ>
+    <Phenotype>male</Phenotype>
+    <GenericName>Barbarian</GenericName>
+    <SpecificName>Superfighter Barbarian</SpecificName>
+    <Icon>abilities/battle_cry_custom.png</Icon>
+    <SelectionGroupName>units/unit_abilities/superfighter_barbarian</SelectionGroupName>
+    <Classes datatype="tokens">Human CitizenSoldier Organic DemoAbilityUnit Superfighter</Classes>
+    <VisibleClasses datatype="tokens">Soldier Infantry Demo Ability</VisibleClasses>
+  </Identity>
+  <Abilities>
+    <BerserkStrike>
+      <Action>unit-target</Action>
+      <Icon>abilities/berserk_strike.png</Icon>
+      <Cooldown>20000</Cooldown>
+      <Tooltip>A single crushing blow against one enemy unit.</Tooltip>
+      <Target>
+        <Type>Entity</Type>
+        <MaxRange>4</MaxRange>
+        <Cursor>action-attack</Cursor>
+        <TargetPlayers datatype="tokens">Gaia Enemy</TargetPlayers>
+        <Classes datatype="tokens">Unit</Classes>
+        <AllowSelf>false</AllowSelf>
+      </Target>
+      <Animation>attack_melee</Animation>
+      <AnimationDuration>1000</AnimationDuration>
+      <DirectDamage>
+        <Origin>target</Origin>
+        <Damage>
+          <Crush>250</Crush>
+        </Damage>
+      </DirectDamage>
+      <Sound>attack</Sound>
+    </BerserkStrike>
+    <WarCry>
+      <Action>instant</Action>
+      <Icon>abilities/war_cry.png</Icon>
+      <Cooldown>40000</Cooldown>
+      <Tooltip>A terrifying shout that makes nearby enemy units flee.</Tooltip>
+      <Animation>attack_melee</Animation>
+      <AnimationVariant>combat</AnimationVariant>
+      <AnimationDuration>1200</AnimationDuration>
+      <Flee>
+        <Range>15</Range>
+        <TargetPlayers datatype="tokens">Gaia Enemy</TargetPlayers>
+        <RestrictedClasses datatype="tokens">Hero Titan</RestrictedClasses>
+      </Flee>
+      <Sound>attack</Sound>
+    </WarCry>
+  </Abilities>
+  <Health>
+    <Max>250</Max>
+    <RegenRate>0</RegenRate>
+  </Health>
+  <Resistance>
+    <Entity>
+      <Damage>
+        <Hack op="add">2</Hack>
+        <Pierce op="add">2</Pierce>
+      </Damage>
+    </Entity>
+  </Resistance>
+  <Attack>
+    <Melee>
+      <Damage>
+        <Hack op="add">0</Hack>
+      </Damage>
+    </Melee>
+  </Attack>
+  <Builder disable=""/>
+  <Promotion disable=""/>
+  <StarRank/>
+  <ResourceGatherer disable=""/>
+  <VisualActor>
+    <Actor>units/unit_abilities/trap_setter.xml</Actor>
+  </VisualActor>
+</Entity>

@@ -6,6 +6,7 @@ and placement (each glyph is measured and auto-fitted into the safe box).
 
 Usage: python3 source/icons/generate.py   (from the mod root; needs rsvg-convert and magick)
 """
+import math
 import os
 import subprocess
 import sys
@@ -16,11 +17,13 @@ SVG_DIR = os.path.join(ROOT, "source", "icons", "svg")
 OUT = {
     "ability": os.path.join(ROOT, "art", "textures", "ui", "session", "portraits", "abilities"),
     "status": os.path.join(ROOT, "art", "textures", "ui", "session", "icons", "status_effects"),
+    "rank": os.path.join(ROOT, "art", "textures", "ui", "session", "icons", "ranks"),
 }
 SIZE = 128  # power of two, matches existing icons
+OUT_SIZE = {"rank": 16}  # vanilla rank icons (Elite.png) are 16x16; default is SIZE
 
 # Safe box: max glyph side and centre, per icon kind (128-unit canvas).
-SAFE = {"ability": 76, "status": 100}
+SAFE = {"ability": 76, "status": 100, "rank": 100}
 CENTRE = (64, 64)
 
 # Paint tokens. Glyphs must use only these.
@@ -176,6 +179,20 @@ GLYPHS = {
 <circle cx="106" cy="34" r="10" fill="{F}"/><circle cx="110" cy="60" r="6" fill="{F}"/>""",
 }
 
+def stars(n):
+    """A row of n five-pointed stars (no frame; the fit scales the row into the safe box)."""
+    def star(cx):
+        pts = []
+        for i in range(10):
+            r = 11 if i % 2 == 0 else 4.6
+            a = math.radians(-90 + 36 * i)
+            pts.append(f"{cx + r * math.cos(a):.2f} {64 + r * math.sin(a):.2f}")
+        return f'<path d="M{" L".join(pts)} Z" fill="{F}"/>'
+    return "".join(star(64 + 24 * (i - (n - 1) / 2)) for i in range(n))
+
+
+GLYPHS.update({f"stars_{n}": stars(n) for n in range(1, 6)})
+
 # (file name, kind, glyph, hue)
 ICONS = [
     ("circular_attack", "ability", "circular_attack", "red"),
@@ -206,7 +223,7 @@ ICONS = [
     ("bless_buff", "status", "halo", "holy"),
     ("protect_units_buff", "status", "kite_shield", "shield"),
     ("poison_cloud", "status", "poison_drop", "poison"),
-]
+] + [(f"star_{n}", "rank", f"stars_{n}", "holy") for n in range(1, 6)]
 
 
 def shade(hex_color, factor):
@@ -311,7 +328,7 @@ def main(theme=THEME):
         with open(src, "w") as f:
             f.write(build(kind, glyph, hue, theme))
         dst = os.path.join(OUT[kind], f"{name}.png")
-        subprocess.run(["rsvg-convert", "-w", str(SIZE), "-h", str(SIZE), "-o", dst, src], check=True)
+        subprocess.run(["rsvg-convert", "-w", str(OUT_SIZE.get(kind, SIZE)), "-h", str(OUT_SIZE.get(kind, SIZE)), "-o", dst, src], check=True)
         print(dst)
 
 

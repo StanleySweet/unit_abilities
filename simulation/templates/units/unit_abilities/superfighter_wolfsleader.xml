@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="template_unit_infantry_melee_swordsman">
+  <Identity>
+    <Civ>gaia</Civ>
+    <Phenotype>male</Phenotype>
+    <GenericName>Wolf Leader</GenericName>
+    <SpecificName>Superfighter Wolf Leader</SpecificName>
+    <Icon>abilities/battle_cry_custom.png</Icon>
+    <SelectionGroupName>units/unit_abilities/superfighter_wolfsleader</SelectionGroupName>
+    <Classes datatype="tokens">Human CitizenSoldier Organic DemoAbilityUnit Superfighter</Classes>
+    <VisibleClasses datatype="tokens">Soldier Infantry Demo Ability</VisibleClasses>
+  </Identity>
+  <Health>
+    <Max>250</Max>
+    <RegenRate>2</RegenRate>
+  </Health>
+  <Resistance>
+    <Entity>
+      <Damage>
+        <Hack op="add">1</Hack>
+        <Pierce op="add">1</Pierce>
+      </Damage>
+    </Entity>
+  </Resistance>
+  <Abilities>
+    <CallWolfs>
+      <Action>instant</Action>
+      <Icon>abilities/call_wolfs.png</Icon>
+      <Cooldown>60000</Cooldown>
+      <Tooltip>Summon two wolves that fight for 30 seconds.</Tooltip>
+      <Animation>attack_melee</Animation>
+      <AnimationDuration>800</AnimationDuration>
+      <SpawnEntity>
+        <Template>special/unit_abilities/summoned_wolf</Template>
+        <Origin>caster</Origin>
+        <Owner>caster</Owner>
+        <Count>2</Count>
+        <Duration>30000</Duration>
+        <ActiveLimit>2</ActiveLimit>
+        <Timing>immediate</Timing>
+      </SpawnEntity>
+      <Sound>attack</Sound>
+    </CallWolfs>
+  </Abilities>
+  <Attack>
+    <Melee>
+      <Damage>
+        <Hack op="add">2</Hack>
+      </Damage>
+    </Melee>
+  </Attack>
+  <Builder disable=""/>
+  <Promotion disable=""/>
+  <StarRank/>
+  <ResourceGatherer disable=""/>
+  <VisualActor>
+    <Actor>units/unit_abilities/trap_setter.xml</Actor>
+  </VisualActor>
+</Entity>

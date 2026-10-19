@@ -15,6 +15,11 @@ Abilities.prototype.Schema =
 					"<ref name='nonNegativeDecimal'/>" +
 				"</element>" +
 				"<optional>" +
+					"<element name='RankScaling' a:help='Optional damage/heal multiplier bonus per StarRank level: multiplier = 1 + level * PerLevel.'>" +
+						"<element name='PerLevel'><ref name='nonNegativeDecimal'/></element>" +
+					"</element>" +
+				"</optional>" +
+				"<optional>" +
 					"<element name='Delay' a:help='Optional delay in milliseconds before the ability effects resolve.'>" +
 						"<ref name='nonNegativeDecimal'/>" +
 					"</element>" +
@@ -187,6 +192,11 @@ Abilities.prototype.Schema =
 								"</element>" +
 							"</optional>" +
 							"<optional>" +
+								"<element name='Count' a:help='Optional number of entities spawned per trigger. Defaults to 1.'>" +
+									"<data type='positiveInteger'/>" +
+								"</element>" +
+							"</optional>" +
+							"<optional>" +
 								"<element name='ActiveLimit' a:help='Optional cap on how many spawned entities of the same template this caster may have active at once. Additional placements are blocked until one of the active entities is gone.'>" +
 									"<ref name='nonNegativeDecimal'/>" +
 								"</element>" +
@@ -238,6 +248,14 @@ Abilities.prototype.Schema =
 								"</element>" +
 							"</optional>" +
 							"<optional>" +
+								"<element name='TargetOnly' a:help='If true, apply the buff only to the chosen entity target instead of an area.'>" +
+									"<choice>" +
+										"<value>true</value>" +
+										"<value>false</value>" +
+									"</choice>" +
+								"</element>" +
+							"</optional>" +
+							"<optional>" +
 								"<element name='IncludeSelf' a:help='Whether the caster should also receive the buff.'>" +
 									"<choice>" +
 										"<value>true</value>" +
@@ -283,7 +301,31 @@ Abilities.prototype.Schema =
 									"<text/>" +
 								"</element>" +
 							"</optional>" +
+							"<optional>" +
+								"<element name='MaxTargets' a:help='Optional cap on the number of targets hit, closest first.'>" +
+									"<data type='positiveInteger'/>" +
+								"</element>" +
+							"</optional>" +
 							AttackHelper.BuildAttackEffectsSchema() +
+						"</interleave>" +
+					"</element>" +
+				"</optional>" +
+				"<optional>" +
+					"<element name='Flee' a:help='Optional effect ordering nearby units to flee from the caster.'>" +
+						"<interleave>" +
+							"<element name='Range'><ref name='nonNegativeDecimal'/></element>" +
+							"<optional>" +
+								"<element name='TargetPlayers'>" +
+									"<attribute name='datatype'><value>tokens</value></attribute>" +
+									"<text/>" +
+								"</element>" +
+							"</optional>" +
+							"<optional>" +
+								"<element name='RestrictedClasses'>" +
+									"<attribute name='datatype'><value>tokens</value></attribute>" +
+									"<text/>" +
+								"</element>" +
+							"</optional>" +
 						"</interleave>" +
 					"</element>" +
 				"</optional>" +
@@ -516,6 +558,11 @@ Abilities.prototype.Schema =
 									"<text/>" +
 								"</element>" +
 							"</optional>" +
+							"<optional>" +
+								"<element name='HealthBelow' a:help='Optional health percentage (0-100). Auto-trigger only fires while the caster health is below it.'>" +
+									"<ref name='nonNegativeDecimal'/>" +
+								"</element>" +
+							"</optional>" +
 						"</interleave>" +
 					"</element>" +
 				"</optional>" +
@@ -545,6 +592,24 @@ Abilities.prototype.GetAbilityNames = function()
 Abilities.prototype.GetAbilityTemplate = function(name)
 {
 	return this.template[name];
+};
+
+Abilities.prototype.GetRankMultiplier = function(ability)
+{
+	if (!ability.RankScaling)
+		return 1;
+	const cmpPromotion = Engine.QueryInterface(this.entity, IID_Promotion);
+	const level = cmpPromotion && cmpPromotion.GetLevel ? cmpPromotion.GetLevel() : 0;
+	return 1 + level * +ability.RankScaling.PerLevel;
+};
+
+Abilities.prototype.ScaleAttackData = function(attackData, ability)
+{
+	const multiplier = this.GetRankMultiplier(ability);
+	if (attackData.Damage)
+		for (const type in attackData.Damage)
+			attackData.Damage[type] *= multiplier;
+	return attackData;
 };
 
 Abilities.prototype.GetCooldown = function(name)
@@ -1067,6 +1132,7 @@ Abilities.prototype.ExecuteAbilityEffects = function(name, ability, targetContex
 	this.ApplyScoutReveal(name, ability, targetContext);
 	this.ApplyAreaHeal(ability, targetContext);
 	this.ApplyAreaAttack(name, ability, targetContext);
+	this.ApplyFlee(ability, targetContext);
 
 	if (ability.Sound)
 		PlaySound(ability.Sound, this.entity);
@@ -1600,6 +1666,22 @@ Abilities.prototype.MatchesAutoTriggerState = function(autoTrigger)
 	return typeof state == "string" && state.indexOf(autoTrigger.State) != -1;
 };
 
+/**
+ * Check whether the caster's health satisfies the optional HealthBelow condition.
+ *
+ * @param {Object|undefined} autoTrigger
+ * @returns {boolean}
+ */
+Abilities.prototype.MatchesAutoTriggerHealth = function(autoTrigger)
+{
+	if (!autoTrigger || autoTrigger.HealthBelow === undefined)
+		return true;
+	const cmpHealth = Engine.QueryInterface(this.entity, IID_Health);
+	if (!cmpHealth || !cmpHealth.GetMaxHitpoints())
+		return false;
+	return 100 * cmpHealth.GetHitpoints() / cmpHealth.GetMaxHitpoints() < +autoTrigger.HealthBelow;
+};
+
 Abilities.prototype.TriggerAnimation = function(ability)
 {
 	const cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
@@ -1700,7 +1782,14 @@ Abilities.prototype.SpawnEntity = function(ability, targetContext)
 	if (!origin || !origin.position)
 		return;
 
-	const entity = Engine.AddEntity(ability.SpawnEntity.Template);
+	const count = Math.max(1, Math.floor(+ability.SpawnEntity.Count || 1));
+	for (let i = 0; i < count; ++i)
+		this.SpawnSingleEntity(ability.SpawnEntity, origin);
+};
+
+Abilities.prototype.SpawnSingleEntity = function(spawnTemplate, origin)
+{
+	const entity = Engine.AddEntity(spawnTemplate.Template);
 	if (!entity || entity == INVALID_ENTITY)
 		return;
 
@@ -1714,21 +1803,21 @@ Abilities.prototype.SpawnEntity = function(ability, targetContext)
 	const cmpOwnership = Engine.QueryInterface(entity, IID_Ownership);
 	if (cmpOwnership)
 	{
-		cmpOwnership.SetOwner(this.GetSpawnEntityOwner(ability.SpawnEntity));
+		cmpOwnership.SetOwner(this.GetSpawnEntityOwner(spawnTemplate));
 	}
 
 	const cmpSpawnedEntity = Engine.QueryInterface(entity, IID_SpawnedEntity);
 	if (cmpSpawnedEntity)
 		cmpSpawnedEntity.SetSpawner(this.entity);
 
-	if (!ability.SpawnEntity.Duration)
+	if (!spawnTemplate.Duration)
 		return;
 
 	Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).SetTimeout(
 		this.entity,
 		IID_Abilities,
 		"DestroyEntity",
-		+ability.SpawnEntity.Duration,
+		+spawnTemplate.Duration,
 		entity);
 };
 
@@ -1827,15 +1916,27 @@ Abilities.prototype.ApplyBuff = function(name, ability, targetContext)
 	if (!players.length)
 		return;
 
-	const origin = this.GetEffectOriginContext(ability.Buff, targetContext);
-	const targets = this.GetTargetsAroundContext(origin, +ability.Buff.Range, players, IID_StatusEffectsReceiver);
-	if (!targets || !targets.length)
-		return;
-
-	const statusName = this.GetBuffStatusName(name, ability.Buff);
-	const statusData = this.GetBuffStatusData(ability.Buff);
 	const cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
 	const owner = cmpOwnership ? cmpOwnership.GetOwner() : INVALID_PLAYER;
+	const statusName = this.GetBuffStatusName(name, ability.Buff);
+	const statusData = this.GetBuffStatusData(ability.Buff);
+
+	if (ability.Buff.TargetOnly == "true")
+	{
+		const target = targetContext && targetContext.entity;
+		const cmpReceiver = target !== undefined && Engine.QueryInterface(target, IID_StatusEffectsReceiver);
+		if (cmpReceiver)
+			cmpReceiver.AddStatus(statusName, statusData, this.entity, owner);
+		return;
+	}
+
+	const origin = this.GetEffectOriginContext(ability.Buff, targetContext);
+	const targets = (this.GetTargetsAroundContext(origin, +ability.Buff.Range, players, IID_StatusEffectsReceiver) || []).slice();
+	// Range queries never return their source entity, so add the caster explicitly.
+	if (ability.Buff.IncludeSelf != "false" && origin && origin.entity == this.entity && players.indexOf(owner) != -1 && targets.indexOf(this.entity) == -1)
+		targets.push(this.entity);
+	if (!targets.length)
+		return;
 
 	for (const target of targets)
 	{
@@ -1924,9 +2025,19 @@ Abilities.prototype.ApplyAreaAttack = function(name, ability, targetContext)
 	if (!targets || !targets.length)
 		return;
 
+	if (ability.AreaAttack.MaxTargets)
+	{
+		const distanceTo = target => {
+			const pos = this.GetEntityPosition(target);
+			return pos ? pos.distanceTo(origin.position) : Infinity;
+		};
+		targets.sort((a, b) => distanceTo(a) - distanceTo(b));
+		targets.length = Math.min(targets.length, +ability.AreaAttack.MaxTargets);
+	}
+
 	const cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
 	const owner = cmpOwnership ? cmpOwnership.GetOwner() : INVALID_PLAYER;
-	const attackData = this.GetAttackEffectsData(name, "AreaAttack", ability.AreaAttack);
+	const attackData = this.ScaleAttackData(this.GetAttackEffectsData(name, "AreaAttack", ability.AreaAttack), ability);
 
 	for (const target of targets)
 		AttackHelper.HandleAttackEffects(target, {
@@ -1935,6 +2046,25 @@ Abilities.prototype.ApplyAreaAttack = function(name, ability, targetContext)
 			"attacker": this.entity,
 			"attackerOwner": owner
 		});
+};
+
+Abilities.prototype.ApplyFlee = function(ability, targetContext)
+{
+	if (!ability.Flee)
+		return;
+	const players = this.GetTargetPlayers(ability.Flee.TargetPlayers, "Enemy");
+	const origin = this.GetEffectOriginContext(ability.Flee, targetContext);
+	const targets = this.GetTargetsAroundContext(origin, +ability.Flee.Range, players, IID_UnitAI);
+	const restricted = this.GetTokenString(ability.Flee.RestrictedClasses).split(/\s+/).filter(Boolean);
+	for (const target of targets || [])
+	{
+		const cmpIdentity = Engine.QueryInterface(target, IID_Identity);
+		if (this.HasAnyIdentityClass(cmpIdentity, restricted))
+			continue;
+		const cmpUnitAI = Engine.QueryInterface(target, IID_UnitAI);
+		if (cmpUnitAI)
+			cmpUnitAI.Flee(this.entity, false);
+	}
 };
 
 Abilities.prototype.ApplyDirectDamage = function(name, ability, targetContext)
@@ -1952,7 +2082,7 @@ Abilities.prototype.ApplyDirectDamage = function(name, ability, targetContext)
 
 	const cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
 	const owner = cmpOwnership ? cmpOwnership.GetOwner() : INVALID_PLAYER;
-	const attackData = this.GetAttackEffectsData(name, "DirectDamage", ability.DirectDamage);
+	const attackData = this.ScaleAttackData(this.GetAttackEffectsData(name, "DirectDamage", ability.DirectDamage), ability);
 
 	if (ability.Projectile && this.ApplyProjectileDirectDamage(name, ability, origin.entity, attackData, owner))
 		return;
@@ -1974,7 +2104,7 @@ Abilities.prototype.ApplyDirectHeal = function(ability, targetContext)
 	if (!origin || origin.entity === undefined)
 		return;
 
-	this.HealEntity(origin.entity, +ability.DirectHeal.Amount);
+	this.HealEntity(origin.entity, +ability.DirectHeal.Amount * this.GetRankMultiplier(ability));
 };
 
 Abilities.prototype.ApplyAreaHeal = function(ability, targetContext)
@@ -1987,8 +2117,13 @@ Abilities.prototype.ApplyAreaHeal = function(ability, targetContext)
 		return;
 
 	const origin = this.GetEffectOriginContext(ability.AreaHeal, targetContext);
-	const targets = this.GetTargetsAroundContext(origin, +ability.AreaHeal.Range, players, IID_Health);
-	if (!targets || !targets.length)
+	const targets = (this.GetTargetsAroundContext(origin, +ability.AreaHeal.Range, players, IID_Health) || []).slice();
+	const cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
+	const owner = cmpOwnership ? cmpOwnership.GetOwner() : INVALID_PLAYER;
+	// Range queries never return their source entity, so add the caster explicitly.
+	if (ability.AreaHeal.IncludeSelf != "false" && origin && origin.entity == this.entity && players.indexOf(owner) != -1 && targets.indexOf(this.entity) == -1)
+		targets.push(this.entity);
+	if (!targets.length)
 		return;
 
 	for (const target of targets)
@@ -1996,7 +2131,7 @@ Abilities.prototype.ApplyAreaHeal = function(ability, targetContext)
 		if (target == this.entity && ability.AreaHeal.IncludeSelf == "false")
 			continue;
 
-		this.HealEntity(target, +ability.AreaHeal.Amount);
+		this.HealEntity(target, +ability.AreaHeal.Amount * this.GetRankMultiplier(ability));
 	}
 };
 
@@ -2426,6 +2561,9 @@ Abilities.prototype.AutoTriggerAbility = function(name)
 {
 	const ability = this.GetAbilityTemplate(name);
 	if (!ability || !this.MatchesAutoTriggerState(ability.AutoTrigger))
+		return;
+
+	if (!this.MatchesAutoTriggerHealth(ability.AutoTrigger))
 		return;
 
 	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);

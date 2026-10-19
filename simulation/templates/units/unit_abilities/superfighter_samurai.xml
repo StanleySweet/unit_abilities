@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="template_unit_infantry_melee_swordsman">
+  <Identity>
+    <Civ>gaia</Civ>
+    <Phenotype>male</Phenotype>
+    <GenericName>Samurai</GenericName>
+    <SpecificName>Superfighter Samurai</SpecificName>
+    <Icon>abilities/battle_cry_custom.png</Icon>
+    <SelectionGroupName>units/unit_abilities/superfighter_samurai</SelectionGroupName>
+    <Classes datatype="tokens">Human CitizenSoldier Organic DemoAbilityUnit Superfighter</Classes>
+    <VisibleClasses datatype="tokens">Soldier Infantry Demo Ability</VisibleClasses>
+  </Identity>
+  <Abilities>
+    <CircularAttack>
+      <Action>instant</Action>
+      <Icon>abilities/circular_attack.png</Icon>
+      <Cooldown>30000</Cooldown>
+      <Tooltip>Spin attack that damages all enemies close to the caster.</Tooltip>
+      <Animation>attack_melee</Animation>
+      <AnimationVariant>combat</AnimationVariant>
+      <AnimationDuration>1200</AnimationDuration>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Duration>1200</Duration>
+      </Particles>
+      <AreaAttack>
+        <Range>8</Range>
+        <TargetPlayers datatype="tokens">Gaia Enemy</TargetPlayers>
+        <Damage>
+          <Hack>40</Hack>
+        </Damage>
+      </AreaAttack>
+      <Sound>attack</Sound>
+    </CircularAttack>
+    <ProtectUnits>
+      <Action>instant</Action>
+      <Icon>abilities/protect_units.png</Icon>
+      <Cooldown>60000</Cooldown>
+      <Tooltip>Inspire nearby allies: they take less damage and recover faster for 20 seconds.</Tooltip>
+      <AnimationVariant>combat</AnimationVariant>
+      <AnimationDuration>1200</AnimationDuration>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Duration>1500</Duration>
+      </Particles>
+      <Buff>
+        <Range>20</Range>
+        <Duration>20000</Duration>
+        <StatusName>ProtectUnitsBuff</StatusName>
+        <TargetPlayers datatype="tokens">Player Ally MutualAlly</TargetPlayers>
+        <IncludeSelf>true</IncludeSelf>
+        <Stackability>Replace</Stackability>
+        <Modifiers>
+          <ProtectArmor>
+            <Paths datatype="tokens">Resistance/Entity/Damage/Hack Resistance/Entity/Damage/Pierce</Paths>
+            <Affects datatype="tokens">Unit</Affects>
+            <Add>3</Add>
+          </ProtectArmor>
+          <ProtectRegen>
+            <Paths datatype="tokens">Health/RegenRate</Paths>
+            <Affects datatype="tokens">Unit</Affects>
+            <Add>2</Add>
+          </ProtectRegen>
+        </Modifiers>
+      </Buff>
+      <Sound>attack</Sound>
+    </ProtectUnits>
+  </Abilities>
+  <Health>
+    <Max>250</Max>
+    <RegenRate>2</RegenRate>
+  </Health>
+  <Resistance>
+    <Entity>
+      <Damage>
+        <Hack op="add">1</Hack>
+        <Pierce op="add">1</Pierce>
+      </Damage>
+    </Entity>
+  </Resistance>
+  <Attack>
+    <Melee>
+      <Damage>
+        <Hack op="add">5</Hack>
+      </Damage>
+    </Melee>
+  </Attack>
+  <Builder disable=""/>
+  <Promotion disable=""/>
+  <StarRank/>
+  <ResourceGatherer disable=""/>
+  <VisualActor>
+    <Actor>units/unit_abilities/trap_setter.xml</Actor>
+  </VisualActor>
+</Entity>
