@@ -987,6 +987,18 @@ AddMock(fifthEntity, IID_UnitAI, {
 TS_ASSERT(!cmpStatefulAutoAbilities.MatchesAutoTriggerState(fifthTemplate.OrderedPulse.AutoTrigger));
 TS_ASSERT(!cmpStatefulAutoAbilities.IsInBattle());
 
+// HealthBelow condition.
+let healthTestHp = 10;
+AddMock(fifthEntity, IID_Health, {
+	"GetHitpoints": () => healthTestHp,
+	"GetMaxHitpoints": () => 100
+});
+TS_ASSERT(cmpStatefulAutoAbilities.MatchesAutoTriggerHealth({ "HealthBelow": "15" }));
+healthTestHp = 20;
+TS_ASSERT(!cmpStatefulAutoAbilities.MatchesAutoTriggerHealth({ "HealthBelow": "15" }));
+TS_ASSERT(cmpStatefulAutoAbilities.MatchesAutoTriggerHealth({}));
+TS_ASSERT(cmpStatefulAutoAbilities.MatchesAutoTriggerHealth(undefined));
+
 AddMock(fourthEntity, IID_Position, {
 	"IsInWorld": () => false
 });

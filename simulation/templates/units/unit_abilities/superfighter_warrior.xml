@@ -65,6 +65,24 @@
       </Buff>
       <Sound>attack</Sound>
     </AuraOfWar>
+    <LastStand>
+      <Action>passive</Action>
+      <Icon>abilities/last_stand.png</Icon>
+      <Cooldown>50000</Cooldown>
+      <Tooltip>When health drops below 15% in combat, fully heal once every 50 seconds.</Tooltip>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Duration>1500</Duration>
+      </Particles>
+      <DirectHeal>
+        <Origin>caster</Origin>
+        <Amount>1000</Amount>
+      </DirectHeal>
+      <AutoTrigger>
+        <Interval>500</Interval>
+        <HealthBelow>15</HealthBelow>
+      </AutoTrigger>
+    </LastStand>
   </Abilities>
   <Health>
     <Max>250</Max>

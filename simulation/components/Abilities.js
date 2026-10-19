@@ -534,6 +534,11 @@ Abilities.prototype.Schema =
 									"<text/>" +
 								"</element>" +
 							"</optional>" +
+							"<optional>" +
+								"<element name='HealthBelow' a:help='Optional health percentage (0-100). Auto-trigger only fires while the caster health is below it.'>" +
+									"<ref name='nonNegativeDecimal'/>" +
+								"</element>" +
+							"</optional>" +
 						"</interleave>" +
 					"</element>" +
 				"</optional>" +
@@ -1618,6 +1623,22 @@ Abilities.prototype.MatchesAutoTriggerState = function(autoTrigger)
 	return typeof state == "string" && state.indexOf(autoTrigger.State) != -1;
 };
 
+/**
+ * Check whether the caster's health satisfies the optional HealthBelow condition.
+ *
+ * @param {Object|undefined} autoTrigger
+ * @returns {boolean}
+ */
+Abilities.prototype.MatchesAutoTriggerHealth = function(autoTrigger)
+{
+	if (!autoTrigger || autoTrigger.HealthBelow === undefined)
+		return true;
+	const cmpHealth = Engine.QueryInterface(this.entity, IID_Health);
+	if (!cmpHealth || !cmpHealth.GetMaxHitpoints())
+		return false;
+	return 100 * cmpHealth.GetHitpoints() / cmpHealth.GetMaxHitpoints() < +autoTrigger.HealthBelow;
+};
+
 Abilities.prototype.TriggerAnimation = function(ability)
 {
 	const cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
@@ -2478,6 +2499,9 @@ Abilities.prototype.AutoTriggerAbility = function(name)
 {
 	const ability = this.GetAbilityTemplate(name);
 	if (!ability || !this.MatchesAutoTriggerState(ability.AutoTrigger))
+		return;
+
+	if (!this.MatchesAutoTriggerHealth(ability.AutoTrigger))
 		return;
 
 	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
