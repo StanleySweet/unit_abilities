@@ -1000,6 +1000,30 @@ TS_ASSERT(!cmpStatefulAutoAbilities.MatchesAutoTriggerHealth({ "HealthBelow": "1
 TS_ASSERT(cmpStatefulAutoAbilities.MatchesAutoTriggerHealth({}));
 TS_ASSERT(cmpStatefulAutoAbilities.MatchesAutoTriggerHealth(undefined));
 
+// AutoTriggerAbility honours HealthBelow: no trigger above the threshold, trigger below it.
+AddMock(fifthEntity, IID_UnitAI, {
+	"GetCurrentState": () => "INDIVIDUAL.COMBAT.ATTACKING",
+	"GetOrders": () => [],
+	"FaceTowardsTarget": () => {}
+});
+fifthTemplate.OrderedPulse.AutoTrigger.HealthBelow = "15";
+autoPlayedSound = undefined;
+healthTestHp = 20;
+cmpStatefulAutoAbilities.AutoTriggerAbility("OrderedPulse");
+TS_ASSERT_EQUALS(autoPlayedSound, undefined);
+healthTestHp = 10;
+cmpStatefulAutoAbilities.lastTriggered = {};
+cmpStatefulAutoAbilities.AutoTriggerAbility("OrderedPulse");
+TS_ASSERT_EQUALS(autoPlayedSound, "attack");
+// Restore the idle state so the pulse timer no longer fires for later checks.
+AddMock(fifthEntity, IID_UnitAI, {
+	"GetCurrentState": () => "",
+	"GetOrders": () => [null],
+	"AddOrder": () => {},
+	"WalkToPointRange": () => true,
+	"FaceTowardsTarget": () => {}
+});
+
 AddMock(fourthEntity, IID_Position, {
 	"IsInWorld": () => false
 });
@@ -1981,6 +2005,42 @@ TS_ASSERT_UNEVAL_EQUALS(statusCalls.map(call => call.target), [secondEntity]);
 statusCalls = [];
 cmpTargetedAbilities.ApplyBuff("Bless", { "Buff": { "Range": "0", "Duration": "1000", "TargetOnly": "false", "Modifiers": {} } });
 TS_ASSERT_UNEVAL_EQUALS(statusCalls.map(call => call.target), [secondEntity, firstEntity]);
+// With other receivers in range, TargetOnly still hits only the chosen target.
+AddMock(thirdEntity, IID_StatusEffectsReceiver, {
+	"AddStatus": () => statusCalls.push({ "target": thirdEntity })
+});
+AddMock(SYSTEM_ENTITY, IID_RangeManager, {
+	"ExecuteQuery": () => [secondEntity, thirdEntity]
+});
+statusCalls = [];
+cmpTargetedAbilities.ApplyBuff("Bless", { "Buff": { "Range": "0", "Duration": "1000", "TargetOnly": "true", "Modifiers": {} } }, { "entity": thirdEntity });
+TS_ASSERT_UNEVAL_EQUALS(statusCalls.map(call => call.target), [thirdEntity]);
+
+// AreaHeal IncludeSelf: the range query never returns the caster, so it is added unless "false"; never twice.
+const areaHealed = [];
+for (const entity of [firstEntity, 920])
+	AddMock(entity, IID_Health, {
+		"GetHitpoints": () => 10,
+		"GetMaxHitpoints": () => 100,
+		"Increase": amount => areaHealed.push(entity)
+	});
+const areaHeal = includeSelf => ({ "AreaHeal": { "Range": "7", "Amount": "5", "IncludeSelf": includeSelf } });
+let areaQuery = [920];
+AddMock(SYSTEM_ENTITY, IID_RangeManager, { "ExecuteQuery": () => areaQuery.slice() });
+for (const [includeSelf, query, expected] of [
+	["true", [920], [920, firstEntity]],
+	[undefined, [920], [920, firstEntity]],
+	["false", [920], [920]],
+	["true", [920, firstEntity], [920, firstEntity]]
+])
+{
+	areaHealed.length = 0;
+	areaQuery = query;
+	cmpTargetedAbilities.ApplyAreaHeal(areaHeal(includeSelf), {});
+	TS_ASSERT_UNEVAL_EQUALS(areaHealed, expected);
+}
+DeleteMock(firstEntity, IID_Health);
+DeleteMock(920, IID_Health);
 
 cmpTargetedAbilities.animationResetTimer = 12345;
 cmpTargetedAbilities.autoTriggerTimers = [11, 12];
