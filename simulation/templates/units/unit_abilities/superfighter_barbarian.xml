@@ -10,6 +10,31 @@
     <Classes datatype="tokens">Human CitizenSoldier Organic DemoAbilityUnit Superfighter</Classes>
     <VisibleClasses datatype="tokens">Soldier Infantry Demo Ability</VisibleClasses>
   </Identity>
+  <Abilities>
+    <BerserkStrike>
+      <Action>unit-target</Action>
+      <Icon>abilities/berserk_strike.png</Icon>
+      <Cooldown>20000</Cooldown>
+      <Tooltip>A single crushing blow against one enemy unit.</Tooltip>
+      <Target>
+        <Type>Entity</Type>
+        <MaxRange>4</MaxRange>
+        <Cursor>action-attack</Cursor>
+        <TargetPlayers datatype="tokens">Gaia Enemy</TargetPlayers>
+        <Classes datatype="tokens">Unit</Classes>
+        <AllowSelf>false</AllowSelf>
+      </Target>
+      <Animation>attack_melee</Animation>
+      <AnimationDuration>1000</AnimationDuration>
+      <DirectDamage>
+        <Origin>target</Origin>
+        <Damage>
+          <Crush>250</Crush>
+        </Damage>
+      </DirectDamage>
+      <Sound>attack</Sound>
+    </BerserkStrike>
+  </Abilities>
   <Health>
     <Max>250</Max>
     <RegenRate>0</RegenRate>
