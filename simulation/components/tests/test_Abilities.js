@@ -1289,7 +1289,7 @@ TS_ASSERT_EQUALS(walkedToPointRange.x, 18);
 TS_ASSERT_EQUALS(walkedToPointRange.z, 13.5);
 TS_ASSERT_EQUALS(walkedToPointRange.max, 1);
 TS_ASSERT_EQUALS(addedOrders.length, 0);
-queuedToken = Object.keys(cmpTargetedAbilities.queuedAbilityTimers)[0];
+let queuedToken = Object.keys(cmpTargetedAbilities.queuedAbilityTimers)[0];
 TS_ASSERT(queuedToken !== undefined);
 cmpTargetedAbilities.ProcessQueuedAbility({
 	"token": queuedToken,
@@ -1438,7 +1438,7 @@ TS_ASSERT_EQUALS(walkedToPointRange.max, 4);
 TS_ASSERT_EQUALS(movedToPointRange, undefined);
 casterPosition2D = new Vector2D(88, 88);
 casterPosition3D = new Vector3D(88, 0, 88);
-let queuedToken = Object.keys(cmpTargetedAbilities.queuedAbilityTimers)[0];
+queuedToken = Object.keys(cmpTargetedAbilities.queuedAbilityTimers)[0];
 TS_ASSERT(queuedToken !== undefined);
 cmpTargetedAbilities.ProcessQueuedAbility({
 	"token": queuedToken,
