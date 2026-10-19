@@ -32,6 +32,39 @@
       </AreaAttack>
       <Sound>attack</Sound>
     </CircularAttack>
+    <ProtectUnits>
+      <Action>instant</Action>
+      <Icon>abilities/protect_units.png</Icon>
+      <Cooldown>60000</Cooldown>
+      <Tooltip>Inspire nearby allies: they take less damage and recover faster for 20 seconds.</Tooltip>
+      <AnimationVariant>combat</AnimationVariant>
+      <AnimationDuration>1200</AnimationDuration>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Duration>1500</Duration>
+      </Particles>
+      <Buff>
+        <Range>20</Range>
+        <Duration>20000</Duration>
+        <StatusName>ProtectUnitsBuff</StatusName>
+        <TargetPlayers datatype="tokens">Player Ally MutualAlly</TargetPlayers>
+        <IncludeSelf>true</IncludeSelf>
+        <Stackability>Replace</Stackability>
+        <Modifiers>
+          <ProtectArmor>
+            <Paths datatype="tokens">Resistance/Entity/Damage/Hack Resistance/Entity/Damage/Pierce</Paths>
+            <Affects datatype="tokens">Unit</Affects>
+            <Add>3</Add>
+          </ProtectArmor>
+          <ProtectRegen>
+            <Paths datatype="tokens">Health/RegenRate</Paths>
+            <Affects datatype="tokens">Unit</Affects>
+            <Add>2</Add>
+          </ProtectRegen>
+        </Modifiers>
+      </Buff>
+      <Sound>attack</Sound>
+    </ProtectUnits>
   </Abilities>
   <Health>
     <Max>250</Max>
