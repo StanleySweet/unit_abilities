@@ -1953,6 +1953,14 @@ statusCalls = [];
 cmpTargetedAbilities.ApplyBuff("SelfBuff", { "Buff": { "Range": "0", "Duration": "1000", "IncludeSelf": "false", "Modifiers": {} } });
 TS_ASSERT_UNEVAL_EQUALS(statusCalls.map(call => call.target), [secondEntity]);
 
+// TargetOnly applies the buff to the chosen entity only, ignoring other receivers in range.
+statusCalls = [];
+cmpTargetedAbilities.ApplyBuff("Bless", { "Buff": { "Range": "0", "Duration": "1000", "TargetOnly": "true", "Modifiers": {} } }, { "entity": secondEntity });
+TS_ASSERT_UNEVAL_EQUALS(statusCalls.map(call => call.target), [secondEntity]);
+statusCalls = [];
+cmpTargetedAbilities.ApplyBuff("Bless", { "Buff": { "Range": "0", "Duration": "1000", "TargetOnly": "false", "Modifiers": {} } });
+TS_ASSERT_UNEVAL_EQUALS(statusCalls.map(call => call.target), [secondEntity, firstEntity]);
+
 cmpTargetedAbilities.animationResetTimer = 12345;
 cmpTargetedAbilities.autoTriggerTimers = [11, 12];
 cmpTargetedAbilities.delayedAbilityTimers = [21, 22];

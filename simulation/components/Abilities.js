@@ -238,6 +238,14 @@ Abilities.prototype.Schema =
 								"</element>" +
 							"</optional>" +
 							"<optional>" +
+								"<element name='TargetOnly' a:help='If true, apply the buff only to the chosen entity target instead of an area.'>" +
+									"<choice>" +
+										"<value>true</value>" +
+										"<value>false</value>" +
+									"</choice>" +
+								"</element>" +
+							"</optional>" +
+							"<optional>" +
 								"<element name='IncludeSelf' a:help='Whether the caster should also receive the buff.'>" +
 									"<choice>" +
 										"<value>true</value>" +
@@ -1829,6 +1837,18 @@ Abilities.prototype.ApplyBuff = function(name, ability, targetContext)
 
 	const cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
 	const owner = cmpOwnership ? cmpOwnership.GetOwner() : INVALID_PLAYER;
+	const statusName = this.GetBuffStatusName(name, ability.Buff);
+	const statusData = this.GetBuffStatusData(ability.Buff);
+
+	if (ability.Buff.TargetOnly == "true")
+	{
+		const target = targetContext && targetContext.entity;
+		const cmpReceiver = target !== undefined && Engine.QueryInterface(target, IID_StatusEffectsReceiver);
+		if (cmpReceiver)
+			cmpReceiver.AddStatus(statusName, statusData, this.entity, owner);
+		return;
+	}
+
 	const origin = this.GetEffectOriginContext(ability.Buff, targetContext);
 	const targets = (this.GetTargetsAroundContext(origin, +ability.Buff.Range, players, IID_StatusEffectsReceiver) || []).slice();
 	// Range queries never return their source entity, so add the caster explicitly.
@@ -1836,9 +1856,6 @@ Abilities.prototype.ApplyBuff = function(name, ability, targetContext)
 		targets.push(this.entity);
 	if (!targets.length)
 		return;
-
-	const statusName = this.GetBuffStatusName(name, ability.Buff);
-	const statusData = this.GetBuffStatusData(ability.Buff);
 
 	for (const target of targets)
 	{

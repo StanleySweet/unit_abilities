@@ -32,6 +32,44 @@
       </AreaAttack>
       <Sound>attack</Sound>
     </CircularAttack>
+    <Bless>
+      <Action>unit-target</Action>
+      <Icon>abilities/bless.png</Icon>
+      <Cooldown>45000</Cooldown>
+      <Tooltip>Make one friendly unit nearly invulnerable for 10 seconds.</Tooltip>
+      <Target>
+        <Type>Entity</Type>
+        <MaxRange>20</MaxRange>
+        <Cursor>action-heal</Cursor>
+        <TargetPlayers datatype="tokens">Player Ally MutualAlly</TargetPlayers>
+        <Classes datatype="tokens">Unit</Classes>
+        <AllowSelf>true</AllowSelf>
+      </Target>
+      <Animation>attack_melee</Animation>
+      <AnimationDuration>800</AnimationDuration>
+      <Particles>
+        <Template>special/effects/hero_ability_aura</Template>
+        <Origin>target</Origin>
+        <Duration>1000</Duration>
+      </Particles>
+      <Buff>
+        <Origin>target</Origin>
+        <TargetOnly>true</TargetOnly>
+        <Range>0</Range>
+        <Duration>10000</Duration>
+        <StatusName>BlessBuff</StatusName>
+        <TargetPlayers datatype="tokens">Player Ally MutualAlly</TargetPlayers>
+        <Stackability>Replace</Stackability>
+        <Modifiers>
+          <BlessResistance>
+            <Paths datatype="tokens">Resistance/Entity/Damage/Hack Resistance/Entity/Damage/Pierce Resistance/Entity/Damage/Crush</Paths>
+            <Affects datatype="tokens">Unit</Affects>
+            <Add>50</Add>
+          </BlessResistance>
+        </Modifiers>
+      </Buff>
+      <Sound>order_heal</Sound>
+    </Bless>
   </Abilities>
   <Health>
     <Max>250</Max>
