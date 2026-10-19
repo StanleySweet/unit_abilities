@@ -22,6 +22,26 @@
       </Damage>
     </Entity>
   </Resistance>
+  <Abilities>
+    <CallWolfs>
+      <Action>instant</Action>
+      <Icon>abilities/call_wolfs.png</Icon>
+      <Cooldown>60000</Cooldown>
+      <Tooltip>Summon two wolves that fight for 30 seconds.</Tooltip>
+      <Animation>attack_melee</Animation>
+      <AnimationDuration>800</AnimationDuration>
+      <SpawnEntity>
+        <Template>special/unit_abilities/summoned_wolf</Template>
+        <Origin>caster</Origin>
+        <Owner>caster</Owner>
+        <Count>2</Count>
+        <Duration>30000</Duration>
+        <ActiveLimit>2</ActiveLimit>
+        <Timing>immediate</Timing>
+      </SpawnEntity>
+      <Sound>attack</Sound>
+    </CallWolfs>
+  </Abilities>
   <Attack>
     <Melee>
       <Damage>

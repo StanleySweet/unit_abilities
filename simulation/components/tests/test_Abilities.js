@@ -1838,6 +1838,14 @@ Engine.AddEntity = () => INVALID_ENTITY;
 cmpTargetedAbilities.SpawnEntity({ "SpawnEntity": { "Template": "units/missing", "Origin": "target" } }, { "type": "point", "position": new Vector2D(3, 4) });
 Engine.AddEntity = originalAddEntity;
 
+let countedSpawns = 0;
+Engine.AddEntity = () => { ++countedSpawns; return INVALID_ENTITY; };
+cmpTargetedAbilities.SpawnEntity({ "SpawnEntity": { "Template": "units/test_trap", "Count": "2" } }, { "type": "point", "position": new Vector2D(3, 4) });
+TS_ASSERT_EQUALS(countedSpawns, 2);
+cmpTargetedAbilities.SpawnEntity({ "SpawnEntity": { "Template": "units/test_trap" } }, { "type": "point", "position": new Vector2D(3, 4) });
+TS_ASSERT_EQUALS(countedSpawns, 3);
+Engine.AddEntity = originalAddEntity;
+
 spawnedScoutRevealers = [];
 destroyedEntities = [];
 TS_ASSERT(cmpScoutAbilities.TriggerAbility("ScoutLongueVue", {

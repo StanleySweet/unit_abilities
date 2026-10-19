@@ -187,6 +187,11 @@ Abilities.prototype.Schema =
 								"</element>" +
 							"</optional>" +
 							"<optional>" +
+								"<element name='Count' a:help='Optional number of entities spawned per trigger. Defaults to 1.'>" +
+									"<data type='positiveInteger'/>" +
+								"</element>" +
+							"</optional>" +
+							"<optional>" +
 								"<element name='ActiveLimit' a:help='Optional cap on how many spawned entities of the same template this caster may have active at once. Additional placements are blocked until one of the active entities is gone.'>" +
 									"<ref name='nonNegativeDecimal'/>" +
 								"</element>" +
@@ -1713,7 +1718,14 @@ Abilities.prototype.SpawnEntity = function(ability, targetContext)
 	if (!origin || !origin.position)
 		return;
 
-	const entity = Engine.AddEntity(ability.SpawnEntity.Template);
+	const count = Math.max(1, Math.floor(+ability.SpawnEntity.Count || 1));
+	for (let i = 0; i < count; ++i)
+		this.SpawnSingleEntity(ability.SpawnEntity, origin);
+};
+
+Abilities.prototype.SpawnSingleEntity = function(spawnTemplate, origin)
+{
+	const entity = Engine.AddEntity(spawnTemplate.Template);
 	if (!entity || entity == INVALID_ENTITY)
 		return;
 
@@ -1727,21 +1739,21 @@ Abilities.prototype.SpawnEntity = function(ability, targetContext)
 	const cmpOwnership = Engine.QueryInterface(entity, IID_Ownership);
 	if (cmpOwnership)
 	{
-		cmpOwnership.SetOwner(this.GetSpawnEntityOwner(ability.SpawnEntity));
+		cmpOwnership.SetOwner(this.GetSpawnEntityOwner(spawnTemplate));
 	}
 
 	const cmpSpawnedEntity = Engine.QueryInterface(entity, IID_SpawnedEntity);
 	if (cmpSpawnedEntity)
 		cmpSpawnedEntity.SetSpawner(this.entity);
 
-	if (!ability.SpawnEntity.Duration)
+	if (!spawnTemplate.Duration)
 		return;
 
 	Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).SetTimeout(
 		this.entity,
 		IID_Abilities,
 		"DestroyEntity",
-		+ability.SpawnEntity.Duration,
+		+spawnTemplate.Duration,
 		entity);
 };
 
