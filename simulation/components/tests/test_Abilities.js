@@ -33,6 +33,7 @@ Engine.LoadComponentScript("interfaces/Diplomacy.js");
 Engine.LoadComponentScript("interfaces/Health.js");
 Engine.LoadComponentScript("interfaces/Player.js");
 Engine.LoadComponentScript("interfaces/PlayerManager.js");
+Engine.LoadComponentScript("interfaces/Promotion.js");
 Engine.LoadComponentScript("interfaces/DelayedDamage.js");
 Engine.LoadComponentScript("interfaces/Infiltrator.js");
 Engine.LoadComponentScript("interfaces/InfiltrationEntrance.js");
@@ -2032,6 +2033,33 @@ TS_ASSERT_UNEVAL_EQUALS(fleeCalls, [
 fleeCalls.length = 0;
 cmpTargetedAbilities.ApplyFlee({});
 TS_ASSERT_EQUALS(fleeCalls.length, 0);
+
+// RankScaling multiplies damage and heals by 1 + level * PerLevel.
+const rankHealed = [];
+AddMock(firstEntity, IID_Health, {
+	"GetHitpoints": () => 10,
+	"GetMaxHitpoints": () => 100,
+	"Increase": amount => rankHealed.push(amount)
+});
+const rankScaling = { "RankScaling": { "PerLevel": "0.1" } };
+const rankDamage = ability => {
+	attackCalls.length = 0;
+	cmpTargetedAbilities.ApplyDirectDamage("Rank", Object.assign({ "DirectDamage": { "Damage": { "Hack": "10" } } }, ability), {});
+	return attackCalls[0].data.attackData.Damage.Hack;
+};
+for (const [level, expected] of [[0, 10], [3, 13], [5, 15]])
+{
+	AddMock(firstEntity, IID_Promotion, { "GetLevel": () => level });
+	TS_ASSERT_EQUALS(rankDamage(rankScaling), expected);
+	rankHealed.length = 0;
+	cmpTargetedAbilities.ApplyDirectHeal(Object.assign({ "DirectHeal": { "Amount": "10" } }, rankScaling), {});
+	TS_ASSERT_EQUALS(rankHealed[0], expected);
+	TS_ASSERT_EQUALS(rankDamage({}), 10);
+}
+AddMock(firstEntity, IID_Promotion, {});
+TS_ASSERT_EQUALS(rankDamage(rankScaling), 10);
+DeleteMock(firstEntity, IID_Promotion);
+DeleteMock(firstEntity, IID_Health);
 
 cmpChannelAbilities.OnDestroy();
 cmpDelayedAbilities.OnDestroy();

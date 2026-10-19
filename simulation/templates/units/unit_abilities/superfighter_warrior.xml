@@ -15,6 +15,9 @@
       <Action>instant</Action>
       <Icon>abilities/circular_attack.png</Icon>
       <Cooldown>50000</Cooldown>
+      <RankScaling>
+        <PerLevel>0.1</PerLevel>
+      </RankScaling>
       <Tooltip>Spin attack that damages all enemies close to the caster.</Tooltip>
       <Animation>attack_melee</Animation>
       <AnimationVariant>combat</AnimationVariant>

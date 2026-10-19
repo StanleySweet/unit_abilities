@@ -15,6 +15,11 @@ Abilities.prototype.Schema =
 					"<ref name='nonNegativeDecimal'/>" +
 				"</element>" +
 				"<optional>" +
+					"<element name='RankScaling' a:help='Optional damage/heal multiplier bonus per StarRank level: multiplier = 1 + level * PerLevel.'>" +
+						"<element name='PerLevel'><ref name='nonNegativeDecimal'/></element>" +
+					"</element>" +
+				"</optional>" +
+				"<optional>" +
 					"<element name='Delay' a:help='Optional delay in milliseconds before the ability effects resolve.'>" +
 						"<ref name='nonNegativeDecimal'/>" +
 					"</element>" +
@@ -587,6 +592,24 @@ Abilities.prototype.GetAbilityNames = function()
 Abilities.prototype.GetAbilityTemplate = function(name)
 {
 	return this.template[name];
+};
+
+Abilities.prototype.GetRankMultiplier = function(ability)
+{
+	if (!ability.RankScaling)
+		return 1;
+	const cmpPromotion = Engine.QueryInterface(this.entity, IID_Promotion);
+	const level = cmpPromotion && cmpPromotion.GetLevel ? cmpPromotion.GetLevel() : 0;
+	return 1 + level * +ability.RankScaling.PerLevel;
+};
+
+Abilities.prototype.ScaleAttackData = function(attackData, ability)
+{
+	const multiplier = this.GetRankMultiplier(ability);
+	if (attackData.Damage)
+		for (const type in attackData.Damage)
+			attackData.Damage[type] *= multiplier;
+	return attackData;
 };
 
 Abilities.prototype.GetCooldown = function(name)
@@ -2014,7 +2037,7 @@ Abilities.prototype.ApplyAreaAttack = function(name, ability, targetContext)
 
 	const cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
 	const owner = cmpOwnership ? cmpOwnership.GetOwner() : INVALID_PLAYER;
-	const attackData = this.GetAttackEffectsData(name, "AreaAttack", ability.AreaAttack);
+	const attackData = this.ScaleAttackData(this.GetAttackEffectsData(name, "AreaAttack", ability.AreaAttack), ability);
 
 	for (const target of targets)
 		AttackHelper.HandleAttackEffects(target, {
@@ -2059,7 +2082,7 @@ Abilities.prototype.ApplyDirectDamage = function(name, ability, targetContext)
 
 	const cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
 	const owner = cmpOwnership ? cmpOwnership.GetOwner() : INVALID_PLAYER;
-	const attackData = this.GetAttackEffectsData(name, "DirectDamage", ability.DirectDamage);
+	const attackData = this.ScaleAttackData(this.GetAttackEffectsData(name, "DirectDamage", ability.DirectDamage), ability);
 
 	if (ability.Projectile && this.ApplyProjectileDirectDamage(name, ability, origin.entity, attackData, owner))
 		return;
@@ -2081,7 +2104,7 @@ Abilities.prototype.ApplyDirectHeal = function(ability, targetContext)
 	if (!origin || origin.entity === undefined)
 		return;
 
-	this.HealEntity(origin.entity, +ability.DirectHeal.Amount);
+	this.HealEntity(origin.entity, +ability.DirectHeal.Amount * this.GetRankMultiplier(ability));
 };
 
 Abilities.prototype.ApplyAreaHeal = function(ability, targetContext)
@@ -2108,7 +2131,7 @@ Abilities.prototype.ApplyAreaHeal = function(ability, targetContext)
 		if (target == this.entity && ability.AreaHeal.IncludeSelf == "false")
 			continue;
 
-		this.HealEntity(target, +ability.AreaHeal.Amount);
+		this.HealEntity(target, +ability.AreaHeal.Amount * this.GetRankMultiplier(ability));
 	}
 };
 
