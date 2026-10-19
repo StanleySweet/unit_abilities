@@ -34,6 +34,21 @@
       </DirectDamage>
       <Sound>attack</Sound>
     </BerserkStrike>
+    <WarCry>
+      <Action>instant</Action>
+      <Icon>abilities/war_cry.png</Icon>
+      <Cooldown>40000</Cooldown>
+      <Tooltip>A terrifying shout that makes nearby enemy units flee.</Tooltip>
+      <Animation>attack_melee</Animation>
+      <AnimationVariant>combat</AnimationVariant>
+      <AnimationDuration>1200</AnimationDuration>
+      <Flee>
+        <Range>15</Range>
+        <TargetPlayers datatype="tokens">Gaia Enemy</TargetPlayers>
+        <RestrictedClasses datatype="tokens">Hero Titan</RestrictedClasses>
+      </Flee>
+      <Sound>attack</Sound>
+    </WarCry>
   </Abilities>
   <Health>
     <Max>250</Max>

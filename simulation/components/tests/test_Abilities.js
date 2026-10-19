@@ -2013,6 +2013,26 @@ attackCalls.length = 0;
 cmpTargetedAbilities.ApplyAreaAttack("Shuriken", { "AreaAttack": { "Range": "60", "TargetPlayers": { "_string": "Enemy" }, "Damage": { "Pierce": "35" } } });
 TS_ASSERT_EQUALS(attackCalls.length, 5);
 
+// Flee orders non-restricted enemies to flee from the caster.
+const fleeCalls = [];
+const fleeEntities = [911, 912, 913];
+fleeEntities.forEach(entity => {
+	AddMock(entity, IID_UnitAI, { "Flee": (target, queued) => fleeCalls.push({ entity, target, queued }) });
+	AddMock(entity, IID_Identity, { "HasClass": className => entity == 913 && className == "Hero" });
+});
+AddMock(SYSTEM_ENTITY, IID_RangeManager, {
+	"GetEntitiesByPlayer": player => player == owner ? ownedEntities : [],
+	"ExecuteQuery": () => fleeEntities.slice()
+});
+cmpTargetedAbilities.ApplyFlee({ "Flee": { "Range": "15", "TargetPlayers": { "_string": "Enemy" }, "RestrictedClasses": { "_string": "Hero" } } });
+TS_ASSERT_UNEVAL_EQUALS(fleeCalls, [
+	{ "entity": 911, "target": firstEntity, "queued": false },
+	{ "entity": 912, "target": firstEntity, "queued": false }
+]);
+fleeCalls.length = 0;
+cmpTargetedAbilities.ApplyFlee({});
+TS_ASSERT_EQUALS(fleeCalls.length, 0);
+
 cmpChannelAbilities.OnDestroy();
 cmpDelayedAbilities.OnDestroy();
 cmpTargetedAbilities.OnDestroy();

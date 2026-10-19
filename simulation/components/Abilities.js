@@ -306,6 +306,25 @@ Abilities.prototype.Schema =
 					"</element>" +
 				"</optional>" +
 				"<optional>" +
+					"<element name='Flee' a:help='Optional effect ordering nearby units to flee from the caster.'>" +
+						"<interleave>" +
+							"<element name='Range'><ref name='nonNegativeDecimal'/></element>" +
+							"<optional>" +
+								"<element name='TargetPlayers'>" +
+									"<attribute name='datatype'><value>tokens</value></attribute>" +
+									"<text/>" +
+								"</element>" +
+							"</optional>" +
+							"<optional>" +
+								"<element name='RestrictedClasses'>" +
+									"<attribute name='datatype'><value>tokens</value></attribute>" +
+									"<text/>" +
+								"</element>" +
+							"</optional>" +
+						"</interleave>" +
+					"</element>" +
+				"</optional>" +
+				"<optional>" +
 					"<element name='DirectDamage' a:help='Optional direct attack damage applied to a single entity when the ability is triggered.'>" +
 						"<interleave>" +
 							"<optional>" +
@@ -1090,6 +1109,7 @@ Abilities.prototype.ExecuteAbilityEffects = function(name, ability, targetContex
 	this.ApplyScoutReveal(name, ability, targetContext);
 	this.ApplyAreaHeal(ability, targetContext);
 	this.ApplyAreaAttack(name, ability, targetContext);
+	this.ApplyFlee(ability, targetContext);
 
 	if (ability.Sound)
 		PlaySound(ability.Sound, this.entity);
@@ -2003,6 +2023,25 @@ Abilities.prototype.ApplyAreaAttack = function(name, ability, targetContext)
 			"attacker": this.entity,
 			"attackerOwner": owner
 		});
+};
+
+Abilities.prototype.ApplyFlee = function(ability, targetContext)
+{
+	if (!ability.Flee)
+		return;
+	const players = this.GetTargetPlayers(ability.Flee.TargetPlayers, "Enemy");
+	const origin = this.GetEffectOriginContext(ability.Flee, targetContext);
+	const targets = this.GetTargetsAroundContext(origin, +ability.Flee.Range, players, IID_UnitAI);
+	const restricted = this.GetTokenString(ability.Flee.RestrictedClasses).split(/\s+/).filter(Boolean);
+	for (const target of targets || [])
+	{
+		const cmpIdentity = Engine.QueryInterface(target, IID_Identity);
+		if (this.HasAnyIdentityClass(cmpIdentity, restricted))
+			continue;
+		const cmpUnitAI = Engine.QueryInterface(target, IID_UnitAI);
+		if (cmpUnitAI)
+			cmpUnitAI.Flee(this.entity, false);
+	}
 };
 
 Abilities.prototype.ApplyDirectDamage = function(name, ability, targetContext)
