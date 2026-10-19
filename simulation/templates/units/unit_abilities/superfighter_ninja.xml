@@ -10,6 +10,45 @@
     <Classes datatype="tokens">Human CitizenSoldier Organic DemoAbilityUnit Superfighter</Classes>
     <VisibleClasses datatype="tokens">Soldier Infantry Demo Ability</VisibleClasses>
   </Identity>
+  <Abilities>
+    <PoisonCloud>
+      <Action>point-target</Action>
+      <Icon>abilities/poison_cloud.png</Icon>
+      <Cooldown>30000</Cooldown>
+      <Tooltip>Throw poison on the ground. Enemies in the area lose health over 8 seconds.</Tooltip>
+      <Target>
+        <Type>Point</Type>
+        <MaxRange>25</MaxRange>
+        <Cursor>action-attack</Cursor>
+        <PreviewTemplate>special/unit_abilities/trap_marker</PreviewTemplate>
+      </Target>
+      <Animation>attack_melee</Animation>
+      <AnimationDuration>900</AnimationDuration>
+      <SpawnEntity>
+        <Template>special/unit_abilities/poison_marker</Template>
+        <Origin>target</Origin>
+        <Owner>caster</Owner>
+        <Duration>8000</Duration>
+        <Timing>immediate</Timing>
+      </SpawnEntity>
+      <AreaAttack>
+        <Origin>target</Origin>
+        <Range>6</Range>
+        <TargetPlayers datatype="tokens">Gaia Enemy</TargetPlayers>
+        <ApplyStatus>
+          <PoisonCloud>
+            <Duration>8000</Duration>
+            <Interval>1000</Interval>
+            <Damage>
+              <Poison>4</Poison>
+            </Damage>
+            <Stackability>Replace</Stackability>
+          </PoisonCloud>
+        </ApplyStatus>
+      </AreaAttack>
+      <Sound>attack</Sound>
+    </PoisonCloud>
+  </Abilities>
   <Health>
     <Max>250</Max>
     <RegenRate>3</RegenRate>
