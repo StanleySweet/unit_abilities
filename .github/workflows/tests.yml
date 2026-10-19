@@ -1,0 +1,71 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  component-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Cache vanilla 0 A.D. v0.28.0
+        id: vanilla-cache
+        uses: actions/cache@v4
+        with:
+          path: 0ad
+          key: 0ad-v0.28.0-js-v1
+
+      - name: Fetch vanilla JS (sparse, no LFS)
+        if: steps.vanilla-cache.outputs.cache-hit != 'true'
+        env:
+          GIT_LFS_SKIP_SMUDGE: "1"
+        run: |
+          git clone --depth 1 --branch v0.28.0 --filter=blob:none --no-checkout \
+            https://gitea.wildfiregames.com/0ad/0ad.git 0ad
+          cd 0ad
+          git sparse-checkout init --no-cone
+          git sparse-checkout set \
+            '/binaries/data/mods/mod/globalscripts/' \
+            '/binaries/data/mods/mod/simulation/' \
+            '/binaries/data/mods/mod/maps/random/' \
+            '/binaries/data/mods/public/globalscripts/' \
+            '/binaries/data/mods/public/simulation/' \
+            '/binaries/data/mods/public/maps/random/'
+          git checkout v0.28.0
+
+      - name: Clone test harness
+        run: git clone --depth 1 https://gitea.wildfiregames.com/Stan/zeroad-coverage-generator.git zcg
+
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: zcg/node_modules
+          key: zcg-node-${{ runner.os }}-${{ hashFiles('zcg/yarn.lock') }}
+
+      - name: Install harness deps
+        working-directory: zcg
+        run: yarn install --frozen-lockfile
+
+      - name: Build workspace and overlay mod
+        working-directory: zcg
+        run: |
+          node create-workspace.js ../0ad/binaries/data/mods
+          for d in components helpers data; do
+            mkdir -p simulation/$d
+            [ -d ../mod/simulation/$d ] && cp -r ../mod/simulation/$d/. simulation/$d/
+          done
+          true
+
+      # test_RMGEN.js covers vanilla maps/random only and hits a known
+      # harness error (TileClass redeclared); it is excluded.
+      - name: Run QUnit
+        working-directory: zcg
+        run: npx qunit test/test_GlobalScripts.js test/test_HelpersScripts.js test/test_SimulationScripts.js
