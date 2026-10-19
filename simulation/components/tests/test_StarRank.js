@@ -16,6 +16,17 @@ Engine.PostMessage = (ent, type, data) => messages.push([ent, type]);
 
 let cmpStarRank = ConstructComponent(entity, "StarRank", {});
 
+// Empty <StarRank/>: the engine passes an undefined template, defaults apply.
+const cmpNoTemplate = ConstructComponent(entity + 1, "StarRank", undefined);
+TS_ASSERT_EQUALS(cmpNoTemplate.GetRequiredXp(), 100);
+cmpNoTemplate.IncreaseXp(100);
+TS_ASSERT_EQUALS(cmpNoTemplate.GetLevel(), 1);
+cmpNoTemplate.SetLevel(2);
+TS_ASSERT_EQUALS(cmpNoTemplate.GetRequiredXp(), 300);
+removed = [];
+added = [];
+messages = [];
+
 // Below the threshold: no level, no modifiers, but the XP bar is notified.
 cmpStarRank.IncreaseXp(99);
 TS_ASSERT_EQUALS(cmpStarRank.GetLevel(), 0);

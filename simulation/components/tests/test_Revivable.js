@@ -1,3 +1,4 @@
+Engine.LoadComponentScript("interfaces/Diplomacy.js");
 Engine.LoadComponentScript("interfaces/Health.js");
 Engine.LoadComponentScript("interfaces/Mood.js");
 Engine.LoadComponentScript("interfaces/Promotion.js");
@@ -39,11 +40,11 @@ AddMock(SYSTEM_ENTITY, IID_Timer, {
 	"SetInterval": () => 7,
 	"CancelTimer": () => {}
 });
-QueryPlayerIDInterface = id => ({
-	"GetState": () => playerState,
+// In 0.28 diplomacy lives on IID_Diplomacy, not IID_Player.
+QueryPlayerIDInterface = (id, iid = IID_Player) => iid == IID_Diplomacy ? {
 	"GetEnemies": () => [2],
 	"GetMutualAllies": () => [1]
-});
+} : { "GetState": () => playerState };
 
 AddMock(fighter, IID_Position, {
 	"IsInWorld": () => true,

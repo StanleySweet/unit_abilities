@@ -107,7 +107,8 @@ Revivable.prototype.Tick = function()
 		return;
 	}
 
-	if (!this.HasUnitsNear(cmpPlayer.GetEnemies()) && this.HasUnitsNear(cmpPlayer.GetMutualAllies()))
+	const cmpDiplomacy = QueryPlayerIDInterface(this.data.owner, IID_Diplomacy);
+	if (!this.HasUnitsNear(cmpDiplomacy.GetEnemies()) && this.HasUnitsNear(cmpDiplomacy.GetMutualAllies()))
 		++this.progress;
 	else
 		this.progress = Math.max(0, this.progress - 1);
