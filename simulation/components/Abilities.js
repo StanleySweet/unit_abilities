@@ -291,6 +291,11 @@ Abilities.prototype.Schema =
 									"<text/>" +
 								"</element>" +
 							"</optional>" +
+							"<optional>" +
+								"<element name='MaxTargets' a:help='Optional cap on the number of targets hit, closest first.'>" +
+									"<data type='positiveInteger'/>" +
+								"</element>" +
+							"</optional>" +
 							AttackHelper.BuildAttackEffectsSchema() +
 						"</interleave>" +
 					"</element>" +
@@ -1943,6 +1948,16 @@ Abilities.prototype.ApplyAreaAttack = function(name, ability, targetContext)
 	const targets = this.GetTargetsAroundContext(origin, +ability.AreaAttack.Range, players, IID_Health);
 	if (!targets || !targets.length)
 		return;
+
+	if (ability.AreaAttack.MaxTargets)
+	{
+		const distanceTo = target => {
+			const pos = this.GetEntityPosition(target);
+			return pos ? pos.distanceTo(origin.position) : Infinity;
+		};
+		targets.sort((a, b) => distanceTo(a) - distanceTo(b));
+		targets.length = Math.min(targets.length, +ability.AreaAttack.MaxTargets);
+	}
 
 	const cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
 	const owner = cmpOwnership ? cmpOwnership.GetOwner() : INVALID_PLAYER;

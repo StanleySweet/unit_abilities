@@ -1975,6 +1975,24 @@ TS_ASSERT_EQUALS(cmpTargetedAbilities.autoTriggerTimers.length, 0);
 TS_ASSERT_EQUALS(cmpTargetedAbilities.delayedAbilityTimers.length, 0);
 TS_ASSERT_EQUALS(Object.keys(cmpTargetedAbilities.queuedAbilityTimers).length, 0);
 
+// MaxTargets keeps only the closest targets; without it every target is hit.
+const maxTargetEntities = [901, 902, 903, 904, 905];
+const maxTargetDistances = [50, 10, 40, 20, 30];
+maxTargetEntities.forEach((entity, i) => AddMock(entity, IID_Position, {
+	"IsInWorld": () => true,
+	"GetPosition2D": () => new Vector2D(casterPosition2D.x + maxTargetDistances[i], casterPosition2D.y)
+}));
+AddMock(SYSTEM_ENTITY, IID_RangeManager, {
+	"GetEntitiesByPlayer": player => player == owner ? ownedEntities : [],
+	"ExecuteQuery": () => maxTargetEntities.slice()
+});
+attackCalls.length = 0;
+cmpTargetedAbilities.ApplyAreaAttack("Shuriken", { "AreaAttack": { "Range": "60", "MaxTargets": "3", "TargetPlayers": { "_string": "Enemy" }, "Damage": { "Pierce": "35" } } });
+TS_ASSERT_UNEVAL_EQUALS(attackCalls.map(call => call.target), [902, 904, 905]);
+attackCalls.length = 0;
+cmpTargetedAbilities.ApplyAreaAttack("Shuriken", { "AreaAttack": { "Range": "60", "TargetPlayers": { "_string": "Enemy" }, "Damage": { "Pierce": "35" } } });
+TS_ASSERT_EQUALS(attackCalls.length, 5);
+
 cmpChannelAbilities.OnDestroy();
 cmpDelayedAbilities.OnDestroy();
 cmpTargetedAbilities.OnDestroy();

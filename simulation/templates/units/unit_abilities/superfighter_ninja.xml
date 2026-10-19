@@ -44,6 +44,23 @@
             </Damage>
             <Stackability>Replace</Stackability>
           </PoisonCloud>
+    <Shuriken>
+      <Action>instant</Action>
+      <Icon>abilities/shuriken.png</Icon>
+      <Cooldown>30000</Cooldown>
+      <Tooltip>Throw stars at the three closest enemies.</Tooltip>
+      <Animation>attack_ranged</Animation>
+      <AnimationDuration>900</AnimationDuration>
+      <AreaAttack>
+        <Range>20</Range>
+        <MaxTargets>3</MaxTargets>
+        <TargetPlayers datatype="tokens">Gaia Enemy</TargetPlayers>
+        <Damage>
+          <Pierce>35</Pierce>
+        </Damage>
+      </AreaAttack>
+      <Sound>attack</Sound>
+    </Shuriken>
         </ApplyStatus>
       </AreaAttack>
       <Sound>attack</Sound>
