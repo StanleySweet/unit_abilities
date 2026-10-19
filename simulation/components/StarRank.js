@@ -47,7 +47,7 @@ StarRank.prototype.Init = function()
 
 StarRank.prototype.GetLevelData = function(level)
 {
-	const data = this.template.Levels && this.template.Levels["Level" + level];
+	const data = this.template?.Levels?.["Level" + level];
 	if (!data)
 		return STAR_RANK_DEFAULT_LEVELS[level - 1];
 	return {
