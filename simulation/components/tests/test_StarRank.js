@@ -75,3 +75,19 @@ TS_ASSERT_EQUALS(cmpStarRank.GetRequiredXp(), 10);
 cmpStarRank.IncreaseXp(10);
 TS_ASSERT_EQUALS(cmpStarRank.GetLevel(), 1);
 TS_ASSERT_UNEVAL_EQUALS(added[added.length - 1][1], { "Health/Max": [{ "affects": [["Unit"]], "add": 1 }] });
+
+// SetLevel: direct set, XP reset, bonuses reapplied; level 0 only removes them.
+removed = [];
+added = [];
+messages = [];
+cmpStarRank = ConstructComponent(entity, "StarRank", {});
+cmpStarRank.IncreaseXp(150);
+cmpStarRank.SetLevel(3);
+TS_ASSERT_EQUALS(cmpStarRank.GetLevel(), 3);
+TS_ASSERT_EQUALS(cmpStarRank.GetCurrentXp(), 0);
+TS_ASSERT_EQUALS(added[added.length - 1][1]["Attack/Melee/Damage/Hack"][0].add, 5);
+const messageCount = messages.length;
+cmpStarRank.SetLevel(0);
+TS_ASSERT_EQUALS(cmpStarRank.GetLevel(), 0);
+TS_ASSERT_UNEVAL_EQUALS(removed[removed.length - 1], ["StarRank", entity]);
+TS_ASSERT_EQUALS(messages.length, messageCount + 1);

@@ -108,6 +108,7 @@
   </Attack>
   <Builder disable=""/>
   <Promotion disable=""/>
+  <Revivable/>
   <StarRank/>
   <ResourceGatherer disable=""/>
   <VisualActor>

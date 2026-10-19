@@ -103,6 +103,20 @@ StarRank.prototype.IncreaseXp = function(amount)
 	Engine.PostMessage(this.entity, MT_ExperienceChanged, {});
 };
 
+/**
+ * Set the level directly (revive demotion): XP is reset, bonuses are reapplied.
+ */
+StarRank.prototype.SetLevel = function(level)
+{
+	this.level = Math.max(0, Math.min(STAR_RANK_MAX_LEVEL, level));
+	this.currentXp = 0;
+	if (this.level)
+		this.ApplyBonuses();
+	else
+		Engine.QueryInterface(SYSTEM_ENTITY, IID_ModifiersManager).RemoveAllModifiers("StarRank", this.entity);
+	Engine.PostMessage(this.entity, MT_ExperienceChanged, {});
+};
+
 StarRank.prototype.ApplyBonuses = function()
 {
 	const cmpModifiersManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_ModifiersManager);
