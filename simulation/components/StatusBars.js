@@ -375,15 +375,19 @@ StatusBars.prototype.AddRankIcon = function(cmpOverlayRenderer, yoffset)
 		icon = cmpIdentity.GetRank();
 	}
 
+	// Star icons are 64x16 (4:1), vanilla rank icons are square.
+	const isStars = icon.startsWith("star_");
 	const iconSize = +this.template.BarWidth / 2;
+	const halfWidth = isStars ? iconSize : iconSize / 2;
+	const height = isStars ? iconSize / 2 : iconSize;
 	cmpOverlayRenderer.AddSprite(
 		"art/textures/ui/session/icons/ranks/" + icon + ".png",
-		{ "x": -iconSize / 2, "y": yoffset },
-		{ "x": iconSize / 2, "y": iconSize + yoffset },
+		{ "x": -halfWidth, "y": yoffset },
+		{ "x": halfWidth, "y": height + yoffset },
 		{ "x": 0, "y": +this.template.HeightOffset + 0.1, "z": 0 },
 		g_NaturalColor);
 
-	return iconSize + this.template.BarHeight / 2;
+	return height + this.template.BarHeight / 2;
 };
 
 Engine.RegisterComponentType(IID_StatusBars, "StatusBars", StatusBars);

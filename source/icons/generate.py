@@ -20,10 +20,11 @@ OUT = {
     "rank": os.path.join(ROOT, "art", "textures", "ui", "session", "icons", "ranks"),
 }
 SIZE = 128  # power of two, matches existing icons
-OUT_SIZE = {"rank": 16}  # vanilla rank icons (Elite.png) are 16x16; default is SIZE
+OUT_SIZE = {"rank": (64, 16)}  # 16 px tall like vanilla ranks, 4x wider so 5 stars stay legible; default is SIZE x SIZE
+CANVAS = {"rank": (128, 32)}  # SVG viewBox for rank icons; default 128x128
 
 # Safe box: max glyph side and centre, per icon kind (128-unit canvas).
-SAFE = {"ability": 76, "status": 100, "rank": 100}
+SAFE = {"ability": 76, "status": 100}
 CENTRE = (64, 64)
 
 # Paint tokens. Glyphs must use only these.
@@ -180,15 +181,16 @@ GLYPHS = {
 }
 
 def stars(n):
-    """A row of n five-pointed stars (no frame; the fit scales the row into the safe box)."""
-    def star(cx):
+    """Five star slots in a 128x32 row: the first n gold, the rest dark outline only (placed as-is, not fitted)."""
+    def star(cx, filled):
         pts = []
         for i in range(10):
-            r = 11 if i % 2 == 0 else 4.6
+            r = 12.5 if i % 2 == 0 else 5.6
             a = math.radians(-90 + 36 * i)
-            pts.append(f"{cx + r * math.cos(a):.2f} {64 + r * math.sin(a):.2f}")
-        return f'<path d="M{" L".join(pts)} Z" fill="{F}"/>'
-    return "".join(star(64 + 24 * (i - (n - 1) / 2)) for i in range(n))
+            pts.append(f"{cx + r * math.cos(a):.2f} {17 + r * math.sin(a):.2f}")
+        fill = f'fill="{F}"' if filled else f'fill="none" stroke="{B}" stroke-width="2.5" stroke-linejoin="round"'
+        return f'<path d="M{" L".join(pts)} Z" {fill}/>'
+    return "".join(star(14 + 25 * i, i < n) for i in range(5))
 
 
 GLYPHS.update({f"stars_{n}": stars(n) for n in range(1, 6)})
@@ -281,8 +283,8 @@ FRAMES = {
 }
 THEME = "rts"  # default; "material" is the flat alternative
 
-def document(defs, body):
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{SIZE}" height="{SIZE}" viewBox="0 0 128 128">
+def document(defs, body, canvas=(128, 128)):
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{canvas[0]}" height="{canvas[1]}" viewBox="0 0 {canvas[0]} {canvas[1]}">
 <defs>
 {defs}
 </defs>
@@ -307,6 +309,9 @@ def measure(glyph_svg, hue, theme):
 
 
 def build(kind, glyph, hue, theme):
+    if kind == "rank":
+        defs = token_defs(hue, theme) + "\n" + MATERIALS[theme]
+        return document(defs, f'<g filter="url(#material)">{GLYPHS[glyph]}</g>', CANVAS[kind])
     x, y, w, h = measure(GLYPHS[glyph], hue, theme)
     k = SAFE[kind] / max(w, h)
     tx = CENTRE[0] - (x + w / 2) * k
@@ -328,7 +333,8 @@ def main(theme=THEME):
         with open(src, "w") as f:
             f.write(build(kind, glyph, hue, theme))
         dst = os.path.join(OUT[kind], f"{name}.png")
-        subprocess.run(["rsvg-convert", "-w", str(OUT_SIZE.get(kind, SIZE)), "-h", str(OUT_SIZE.get(kind, SIZE)), "-o", dst, src], check=True)
+        w, h = OUT_SIZE.get(kind, (SIZE, SIZE))
+        subprocess.run(["rsvg-convert", "-w", str(w), "-h", str(h), "-o", dst, src], check=True)
         print(dst)
 
 
