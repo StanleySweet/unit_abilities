@@ -363,13 +363,21 @@ StatusBars.prototype.AddRankIcon = function(cmpOverlayRenderer, yoffset)
 	if (!this.enabled || !this.showRank)
 		return 0;
 
-	const cmpIdentity = Engine.QueryInterface(this.entity, IID_Identity);
-	if (!cmpIdentity || !cmpIdentity.GetRank())
-		return 0;
+	let icon;
+	const cmpPromotion = Engine.QueryInterface(this.entity, IID_Promotion);
+	if (cmpPromotion && cmpPromotion.GetLevel && cmpPromotion.GetLevel() > 0)
+		icon = "star_" + cmpPromotion.GetLevel();
+	else
+	{
+		const cmpIdentity = Engine.QueryInterface(this.entity, IID_Identity);
+		if (!cmpIdentity || !cmpIdentity.GetRank())
+			return 0;
+		icon = cmpIdentity.GetRank();
+	}
 
 	const iconSize = +this.template.BarWidth / 2;
 	cmpOverlayRenderer.AddSprite(
-		"art/textures/ui/session/icons/ranks/" + cmpIdentity.GetRank() + ".png",
+		"art/textures/ui/session/icons/ranks/" + icon + ".png",
 		{ "x": -iconSize / 2, "y": yoffset },
 		{ "x": iconSize / 2, "y": iconSize + yoffset },
 		{ "x": 0, "y": +this.template.HeightOffset + 0.1, "z": 0 },

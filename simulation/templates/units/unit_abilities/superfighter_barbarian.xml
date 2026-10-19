@@ -71,6 +71,7 @@
   </Attack>
   <Builder disable=""/>
   <Promotion disable=""/>
+  <StarRank/>
   <ResourceGatherer disable=""/>
   <VisualActor>
     <Actor>units/unit_abilities/trap_setter.xml</Actor>
