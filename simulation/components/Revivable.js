@@ -46,6 +46,7 @@ Revivable.prototype.OnHealthChanged = function(msg)
 	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
 	const cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
 	const cmpPromotion = Engine.QueryInterface(this.entity, IID_Promotion);
+	const cmpMood = Engine.QueryInterface(this.entity, IID_Mood);
 	const cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
 	if (!cmpPosition || !cmpPosition.IsInWorld() || !cmpOwnership || !cmpTemplateManager)
 		return;
@@ -69,6 +70,7 @@ Revivable.prototype.OnHealthChanged = function(msg)
 		"owner": cmpOwnership.GetOwner(),
 		"level": cmpPromotion && cmpPromotion.GetLevel ? cmpPromotion.GetLevel() : 0,
 		"deaths": this.deaths + 1,
+		"moods": cmpMood ? cmpMood.GetMoods() : [],
 		"rotation": cmpPosition.GetRotation().y
 	});
 };
@@ -130,9 +132,14 @@ Revivable.prototype.Revive = function()
 	if (cmpFighterRevivable)
 		cmpFighterRevivable.SetDeaths(data.deaths);
 
+	const level = this.GetRevivedLevel(data.level);
+	const cmpMood = Engine.QueryInterface(fighter, IID_Mood);
+	if (cmpMood)
+		cmpMood.Restore({ "moods": data.moods, "level": level, "deaths": data.deaths, "oldLevel": data.level });
+
 	const cmpPromotion = Engine.QueryInterface(fighter, IID_Promotion);
 	if (cmpPromotion && cmpPromotion.SetLevel)
-		cmpPromotion.SetLevel(this.GetRevivedLevel(data.level));
+		cmpPromotion.SetLevel(level);
 
 	const cmpHealth = Engine.QueryInterface(fighter, IID_Health);
 	if (cmpHealth)

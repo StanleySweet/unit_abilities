@@ -89,6 +89,7 @@
   <Promotion disable=""/>
   <Revivable/>
   <StarRank/>
+  <Mood/>
   <ResourceGatherer disable=""/>
   <VisualActor>
     <Actor>units/unit_abilities/trap_setter.xml</Actor>

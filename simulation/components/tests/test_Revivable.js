@@ -1,4 +1,5 @@
 Engine.LoadComponentScript("interfaces/Health.js");
+Engine.LoadComponentScript("interfaces/Mood.js");
 Engine.LoadComponentScript("interfaces/Promotion.js");
 Engine.LoadComponentScript("interfaces/Revivable.js");
 Engine.LoadComponentScript("interfaces/Timer.js");
@@ -79,6 +80,10 @@ Engine.AddEntity = template =>
 };
 Engine.DestroyEntity = ent => destroyed.push(ent);
 
+let restored;
+AddMock(fighter, IID_Mood, { "GetMoods": () => ["bored"] });
+AddMock(revived, IID_Mood, { "Restore": data => restored = data });
+
 const cmpMarker = ConstructComponent(marker, "Revivable", {});
 const cmpRevived = ConstructComponent(revived, "Revivable", {});
 
@@ -118,6 +123,7 @@ cmpMarker.Tick();
 TS_ASSERT_EQUALS(created.length, 2);
 TS_ASSERT_EQUALS(created[1], "units/unit_abilities/superfighter_ninja");
 TS_ASSERT_EQUALS(revivedLevel, 3);
+TS_ASSERT_UNEVAL_EQUALS(restored, { "moods": ["bored"], "level": 3, "deaths": 1, "oldLevel": 5 });
 TS_ASSERT_EQUALS(revivedHitpoints, 150);
 TS_ASSERT_EQUALS(revivedOwner, player);
 TS_ASSERT_UNEVAL_EQUALS(revivedPosition, [10, 20]);
